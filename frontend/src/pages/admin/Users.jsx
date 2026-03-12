@@ -1,0 +1,85 @@
+import { useEffect, useState } from "react";
+import AdminLayout from "../../components/layout/AdminLayout";
+import { getAllUsers, verifyUser } from "../../api/admin.api";
+import { CheckCircle, Clock, ShieldCheck } from "lucide-react";
+import { PageSpinner } from "../../components/ui/Spinner";
+import toast from "react-hot-toast";
+
+export default function AdminUsers() {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [verifying, setVerifying] = useState(null);
+
+  const fetchUsers = () => {
+    setLoading(true);
+    getAllUsers()
+      .then((r) => setUsers(r.data.data))
+      .catch(() => toast.error("Failed to load users"))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { fetchUsers(); }, []);
+
+  const handleVerify = async (id) => {
+    setVerifying(id);
+    try {
+      await verifyUser(id);
+      toast.success("User verified!");
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Verification failed");
+    } finally {
+      setVerifying(null);
+    }
+  };
+
+  return (
+    <AdminLayout>
+      <h1 className="text-2xl font-bold text-white mb-1">Users</h1>
+      <p className="text-slate-500 text-sm mb-8">Manage and verify registered users</p>
+
+      {loading ? <PageSpinner /> : (
+        <div className="card p-0 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-surface-border bg-white/5">
+                {["Name", "Email", "Role", "Status", "Joined", "Action"].map((h) => (
+                  <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-slate-400 uppercase tracking-wide">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u._id} className="border-b border-surface-border hover:bg-white/5 transition">
+                  <td className="px-5 py-4 font-medium text-white">{u.name}</td>
+                  <td className="px-5 py-4 text-slate-400">{u.email}</td>
+                  <td className="px-5 py-4">
+                    <span className={u.role === "admin" ? "badge-admin" : "badge-user"}>{u.role}</span>
+                  </td>
+                  <td className="px-5 py-4">
+                    {u.isVerified
+                      ? <span className="badge-done flex items-center gap-1 w-fit"><CheckCircle size={12} /> Verified</span>
+                      : <span className="badge-pending flex items-center gap-1 w-fit"><Clock size={12} /> Pending</span>}
+                  </td>
+                  <td className="px-5 py-4 text-slate-500">{new Date(u.createdAt).toLocaleDateString()}</td>
+                  <td className="px-5 py-4">
+                    {!u.isVerified && (
+                      <button onClick={() => handleVerify(u._id)} disabled={verifying === u._id}
+                        className="btn-primary flex items-center gap-1.5 py-1.5 px-3 text-xs">
+                        <ShieldCheck size={13} />
+                        {verifying === u._id ? "Verifying…" : "Verify"}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {!users.length && (
+                <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-500">No users found.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </AdminLayout>
+  );
+}

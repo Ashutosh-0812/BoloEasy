@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-surface text-slate-100 font-sans antialiased;
+  }
+  * {
+    @apply border-surface-border;
+  }
+}
+
+@layer components {
+  .sidebar-link {
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all duration-150 text-sm font-medium;
+  }
+  .sidebar-link.active {
+    @apply bg-primary-600 text-white;
+  }
+  .card {
+    @apply bg-surface-card border border-surface-border rounded-xl p-6;
+  }
+  .btn-primary {
+    @apply bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply bg-surface-card border border-surface-border hover:bg-white/10 text-slate-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150;
+  }
+  .btn-danger {
+    @apply bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150;
+  }
+  .input {
+    @apply w-full bg-surface-card border border-surface-border rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition;
+  }
+  .label {
+    @apply block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide;
+  }
+  .badge-pending {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-400;
+  }
+  .badge-progress {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400;
+  }
+  .badge-done {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400;
+  }
+  .badge-admin {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary-500/20 text-primary-400;
+  }
+  .badge-user {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/20 text-slate-400;
+  }
+}
