@@ -1,0 +1,107 @@
+const User = require("../../register/models/user.model");
+const Project = require("../models/project.model");
+const Task = require("../models/task.model");
+
+// ─── Users ──────────────────────────────────────────────────────────────────
+
+const getAllUsers = async () => {
+  return User.find().select("-password").sort({ createdAt: -1 });
+};
+
+const getPendingUsers = async () => {
+  return User.find({ isVerified: false }).select("-password").sort({ createdAt: -1 });
+};
+
+const verifyUser = async (userId) => {
+  return User.findByIdAndUpdate(userId, { isVerified: true }, { new: true }).select("-password");
+};
+
+// ─── Projects ────────────────────────────────────────────────────────────────
+
+const createProject = async (data) => {
+  const project = new Project(data);
+  return project.save();
+};
+
+const getAllProjects = async () => {
+  return Project.find().populate("createdBy", "name email").sort({ createdAt: -1 });
+};
+
+const getProjectById = async (id) => {
+  return Project.findById(id).populate("createdBy", "name email").populate("tasks");
+};
+
+const updateProject = async (id, data) => {
+  return Project.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+};
+
+const deleteProject = async (id) => {
+  return Project.findByIdAndDelete(id);
+};
+
+// ─── Tasks ───────────────────────────────────────────────────────────────────
+
+const createTask = async (data) => {
+  const task = new Task(data);
+  return task.save();
+};
+
+const addTaskToProject = async (projectId, taskId) => {
+  return Project.findByIdAndUpdate(projectId, { $push: { tasks: taskId } }, { new: true });
+};
+
+const getTasksByProject = async (projectId) => {
+  return Task.find({ projectId })
+    .select("-audio.data")
+    .populate("assignedTo", "name email")
+    .sort({ createdAt: -1 });
+};
+
+const getTaskById = async (id) => {
+  return Task.findById(id).select("-audio.data").populate("assignedTo", "name email");
+};
+
+const updateTask = async (id, data) => {
+  return Task.findByIdAndUpdate(id, data, { new: true, runValidators: true }).select("-audio.data");
+};
+
+const deleteTask = async (id) => {
+  return Task.findByIdAndDelete(id);
+};
+
+const removeTaskFromProject = async (projectId, taskId) => {
+  return Project.findByIdAndUpdate(projectId, { $pull: { tasks: taskId } }, { new: true });
+};
+
+// ─── Dashboard ───────────────────────────────────────────────────────────────
+
+const getDashboardStats = async () => {
+  const [totalUsers, pendingUsers, totalProjects, totalTasks, tasksByStatus] = await Promise.all([
+    User.countDocuments(),
+    User.countDocuments({ isVerified: false }),
+    Project.countDocuments(),
+    Task.countDocuments(),
+    Task.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
+  ]);
+
+  const statusMap = {};
+  tasksByStatus.forEach((s) => { statusMap[s._id] = s.count; });
+
+  return {
+    users: { total: totalUsers, pending: pendingUsers, verified: totalUsers - pendingUsers },
+    projects: { total: totalProjects },
+    tasks: {
+      total: totalTasks,
+      pending: statusMap["pending"] || 0,
+      inProgress: statusMap["in-progress"] || 0,
+      completed: statusMap["completed"] || 0,
+    },
+  };
+};
+
+module.exports = {
+  getAllUsers, getPendingUsers, verifyUser,
+  createProject, getAllProjects, getProjectById, updateProject, deleteProject,
+  createTask, addTaskToProject, getTasksByProject, getTaskById, updateTask, deleteTask, removeTaskFromProject,
+  getDashboardStats,
+};
