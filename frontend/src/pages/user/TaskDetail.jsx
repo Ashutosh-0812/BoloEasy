@@ -125,19 +125,19 @@ export default function TaskDetail() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 overflow-x-hidden">
         {/* Left: Task content */}
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0">
           {/* Prompt */}
           <div className="card">
             <p className="label mb-2">Prompt</p>
-            <p className="text-slate-300 text-sm leading-relaxed">{task.prompt}</p>
+            <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap break-all">{task.prompt}</p>
           </div>
 
           {/* Text to read */}
           <div className="card bg-gradient-to-br from-primary-900/30 to-surface-card border-primary-500/20">
             <p className="label mb-3 text-primary-400">Text to Read</p>
-            <p className="text-white text-lg font-medium leading-relaxed">{task.text}</p>
+            <p className="text-white text-lg font-medium leading-relaxed whitespace-pre-wrap break-all">{task.text}</p>
           </div>
 
           {/* Audio status */}
@@ -157,7 +157,7 @@ export default function TaskDetail() {
         </div>
 
         {/* Right: Record + Transcript */}
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0">
           {/* Audio Recorder */}
           <div className="card">
             <p className="label mb-4">Record Audio <span className="normal-case text-slate-500 font-normal">· 16kHz · 16-bit · Mono · PCM WAV</span></p>

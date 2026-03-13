@@ -263,7 +263,7 @@ export default function ProjectDetail() {
               <Spinner size="lg" />
             </div>
           ) : selectedTask ? (
-            <div className="max-h-[75vh] overflow-y-auto pr-1 space-y-6">
+            <div className="max-h-[75vh] overflow-y-auto overflow-x-hidden pr-1 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="rounded-2xl border border-surface-border bg-white/5 p-4">
                   <p className="label mb-3">Project Details</p>
@@ -309,15 +309,15 @@ export default function ProjectDetail() {
                     <FileText size={16} className="text-primary-400" />
                     <p className="label m-0">Prompt</p>
                   </div>
-                  <p className="text-slate-300 whitespace-pre-wrap text-sm leading-relaxed">{selectedTask.prompt || "No prompt provided."}</p>
+                  <p className="text-slate-300 whitespace-pre-wrap break-all text-sm leading-relaxed">{selectedTask.prompt || "No prompt provided."}</p>
                 </div>
 
-                <div className="rounded-2xl border border-surface-border bg-gradient-to-br from-primary-900/30 to-surface-card p-4 border-primary-500/20">
+                <div className="rounded-2xl border border-surface-border bg-gradient-to-br from-primary-900/30 to-surface-card p-4 border-primary-500/20 min-w-0">
                   <div className="flex items-center gap-2 mb-3 text-slate-200">
                     <FileText size={16} className="text-primary-400" />
                     <p className="label m-0">Text To Read</p>
                   </div>
-                  <p className="text-white whitespace-pre-wrap text-sm leading-relaxed">{selectedTask.text || "No text provided."}</p>
+                  <p className="text-white whitespace-pre-wrap break-all text-sm leading-relaxed">{selectedTask.text || "No text provided."}</p>
                 </div>
               </div>
 
@@ -366,7 +366,7 @@ export default function ProjectDetail() {
                     <p className="label m-0">Transcript</p>
                   </div>
                   <div className="rounded-xl bg-black/20 border border-surface-border p-4 min-h-[220px]">
-                    <p className="text-slate-300 whitespace-pre-wrap text-sm leading-relaxed">
+                    <p className="text-slate-300 whitespace-pre-wrap break-all text-sm leading-relaxed">
                       {selectedTask.transcript || "No transcript submitted yet."}
                     </p>
                   </div>
