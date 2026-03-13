@@ -263,7 +263,7 @@ export default function ProjectDetail() {
               <Spinner size="lg" />
             </div>
           ) : selectedTask ? (
-            <div className="max-h-[75vh] overflow-y-auto overflow-x-hidden pr-1 space-y-6">
+            <div className="max-h-[75vh] overflow-y-auto overflow-x-hidden scrollbar-hidden space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="rounded-2xl border border-surface-border bg-white/5 p-4">
                   <p className="label mb-3">Project Details</p>
