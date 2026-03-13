@@ -38,14 +38,16 @@ const uploadAudio = async (taskId, audioBuffer, userId, fileSize) => {
   const { s3Key, s3Url, fileSizeBytes } = await uploadAudioToS3(audioBuffer, taskId, userId);
 
   // Persist S3 metadata to MongoDB
-  const task = await dao.saveAudio(taskId, { s3Key, s3Url, fileSizeBytes });
+  const status = existing.transcript?.trim() ? "completed" : "in-progress";
+  const task = await dao.saveAudio(taskId, { s3Key, s3Url, fileSizeBytes, status });
   logger.info(`Audio saved to S3 for task ${taskId} | user: ${userId} | key: ${s3Key}`);
   return task;
 };
 
 const submitTranscript = async (taskId, transcript, userId) => {
-  await getTaskDetail(taskId, userId);
-  const task = await dao.saveTranscript(taskId, transcript);
+  const existing = await getTaskDetail(taskId, userId);
+  const status = existing.audio?.s3Key ? "completed" : "in-progress";
+  const task = await dao.saveTranscript(taskId, transcript, status);
   logger.info(`Transcript submitted for task ${taskId} by user ${userId}`);
   return task;
 };

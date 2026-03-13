@@ -8,7 +8,7 @@ const getTaskByIdForUser = async (taskId) => {
   return Task.findById(taskId);
 };
 
-const saveAudio = async (taskId, { s3Key, s3Url, fileSizeBytes }) => {
+const saveAudio = async (taskId, { s3Key, s3Url, fileSizeBytes, status }) => {
   return Task.findByIdAndUpdate(
     taskId,
     {
@@ -20,16 +20,16 @@ const saveAudio = async (taskId, { s3Key, s3Url, fileSizeBytes }) => {
       "audio.channels": 1,
       "audio.uploadedAt": new Date(),
       "audio.fileSizeBytes": fileSizeBytes,
-      status: "in-progress",
+      status,
     },
     { new: true }
   );
 };
 
-const saveTranscript = async (taskId, transcript) => {
+const saveTranscript = async (taskId, transcript, status) => {
   return Task.findByIdAndUpdate(
     taskId,
-    { transcript, status: "completed" },
+    { transcript, status },
     { new: true }
   );
 };
