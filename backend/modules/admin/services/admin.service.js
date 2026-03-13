@@ -60,7 +60,7 @@ const deleteProject = async (id) => {
 };
 
 // ─── Tasks ────────────────────────────────────────────────────────────────────
-const createTask = async ({ projectId, type, text, prompt }) => {
+const createTask = async ({ projectId, type, text, prompt, assignedTo }) => {
   // Ensure project exists
   const project = await dao.getProjectById(projectId);
   if (!project) {
@@ -69,7 +69,13 @@ const createTask = async ({ projectId, type, text, prompt }) => {
     throw err;
   }
 
-  const task = await dao.createTask({ projectId, type, text, prompt });
+  // Build task data
+  const taskData = { projectId, type, text, prompt };
+  if (assignedTo) {
+    taskData.assignedTo = assignedTo;
+  }
+
+  const task = await dao.createTask(taskData);
   await dao.addTaskToProject(projectId, task._id);
   logger.info(`Task created: ${task.taskId} under project ${projectId}`);
   return task;

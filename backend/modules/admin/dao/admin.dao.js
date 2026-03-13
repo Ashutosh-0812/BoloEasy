@@ -43,7 +43,8 @@ const deleteProject = async (id) => {
 
 const createTask = async (data) => {
   const task = new Task(data);
-  return task.save();
+  const savedTask = await task.save();
+  return Task.findById(savedTask._id).populate("assignedTo", "name email");
 };
 
 const addTaskToProject = async (projectId, taskId) => {
@@ -62,7 +63,9 @@ const getTaskById = async (id) => {
 };
 
 const updateTask = async (id, data) => {
-  return Task.findByIdAndUpdate(id, data, { new: true, runValidators: true }).select("-audio.data");
+  return Task.findByIdAndUpdate(id, data, { new: true, runValidators: true })
+    .select("-audio.data")
+    .populate("assignedTo", "name email");
 };
 
 const deleteTask = async (id) => {

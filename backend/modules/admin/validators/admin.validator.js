@@ -47,7 +47,7 @@ const createTaskValidator = [
     .isLength({ max: 1000 }).withMessage("Prompt must be at most 1000 characters"),
 
   body("assignedTo")
-    .optional()
+    .optional({ checkFalsy: true })
     .isMongoId().withMessage("assignedTo must be a valid user ID"),
 ];
 
@@ -68,7 +68,7 @@ const updateTaskValidator = [
     .isLength({ max: 1000 }).withMessage("Prompt must be at most 1000 characters"),
 
   body("assignedTo")
-    .optional()
+    .optional({ checkFalsy: true })
     .isMongoId().withMessage("assignedTo must be a valid user ID"),
 
   body("status")

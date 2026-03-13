@@ -36,4 +36,7 @@ router.get("/tasks/:id", [validateObjectId("id"), validate], ctrl.getTaskById);
 router.patch("/tasks/:id", [validateObjectId("id"), ...updateTaskValidator, validate], ctrl.updateTask);
 router.delete("/tasks/:id", [validateObjectId("id"), validate], ctrl.deleteTask);
 
+// ─── Admin view user submissions ─────────────────────────────────────────────
+router.get("/tasks/:id/audio", [validateObjectId("id"), validate], ctrl.streamTaskAudio);
+
 module.exports = router;

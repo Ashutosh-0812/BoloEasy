@@ -3,10 +3,10 @@ import { useParams, Link } from "react-router-dom";
 import AdminLayout from "../../components/layout/AdminLayout";
 import Modal from "../../components/ui/Modal";
 import {
-  getProjectById, createTask, updateTask, deleteTask, getAllUsers
+  getProjectById, createTask, updateTask, deleteTask, getAllUsers, getTaskById, streamTaskAudio
 } from "../../api/admin.api";
-import { Plus, Trash2, Pencil, ChevronLeft, Mic2 } from "lucide-react";
-import { PageSpinner } from "../../components/ui/Spinner";
+import { Plus, Trash2, Pencil, ChevronLeft, Mic2, FileAudio, FileText, User2, CalendarClock } from "lucide-react";
+import { PageSpinner, Spinner } from "../../components/ui/Spinner";
 import toast from "react-hot-toast";
 
 const TASK_TYPES = ["name entity-read", "name entity-variable", "name entity-sentence"];
@@ -16,6 +16,16 @@ const statusBadge = (s) => {
   if (s === "completed") return <span className="badge-done">Completed</span>;
   if (s === "in-progress") return <span className="badge-progress">In Progress</span>;
   return <span className="badge-pending">Pending</span>;
+};
+
+const formatDateTime = (value) => {
+  if (!value) return "Not available";
+  return new Date(value).toLocaleString();
+};
+
+const formatFileSize = (bytes) => {
+  if (!bytes) return "0 KB";
+  return `${(bytes / 1024).toFixed(1)} KB`;
 };
 
 export default function ProjectDetail() {
@@ -28,6 +38,9 @@ export default function ProjectDetail() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_TASK);
   const [saving, setSaving] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [submissionLoading, setSubmissionLoading] = useState(false);
+  const [submissionAudioUrl, setSubmissionAudioUrl] = useState(null);
 
   const fetchProject = () => {
     Promise.all([getProjectById(id), getAllUsers()])
@@ -41,17 +54,70 @@ export default function ProjectDetail() {
   };
   useEffect(() => { fetchProject(); }, [id]);
 
+  useEffect(() => () => {
+    if (submissionAudioUrl) {
+      URL.revokeObjectURL(submissionAudioUrl);
+    }
+  }, [submissionAudioUrl]);
+
   const openCreate = () => { setForm(EMPTY_TASK); setEditing(null); setModal("form"); };
   const openEdit = (t) => {
     setForm({ type: t.type, text: t.text, prompt: t.prompt, assignedTo: t.assignedTo?._id || "" });
     setEditing(t); setModal("form");
   };
 
+  const closeSubmissionModal = () => {
+    setModal(null);
+    setSelectedTask(null);
+    if (submissionAudioUrl) {
+      URL.revokeObjectURL(submissionAudioUrl);
+      setSubmissionAudioUrl(null);
+    }
+  };
+
+  const openSubmission = async (taskId) => {
+    setModal("submission");
+    setSubmissionLoading(true);
+    setSelectedTask(null);
+
+    if (submissionAudioUrl) {
+      URL.revokeObjectURL(submissionAudioUrl);
+      setSubmissionAudioUrl(null);
+    }
+
+    try {
+      const taskResponse = await getTaskById(taskId);
+      const taskData = taskResponse.data.data;
+      setSelectedTask(taskData);
+
+      if (taskData.audio?.s3Key) {
+        try {
+          const audioResponse = await streamTaskAudio(taskId);
+          const audioBlobUrl = URL.createObjectURL(audioResponse.data);
+          setSubmissionAudioUrl(audioBlobUrl);
+        } catch {
+          toast.error("Task details loaded, but audio could not be played.");
+        }
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to load task submission");
+      closeSubmissionModal();
+    } finally {
+      setSubmissionLoading(false);
+    }
+  };
+
   const handleSave = async (e) => {
     e.preventDefault(); setSaving(true);
     try {
-      if (editing) { await updateTask(editing._id, form); toast.success("Task updated!"); }
-      else { await createTask(id, form); toast.success("Task created!"); }
+      // Clean up form data - remove empty assignedTo
+      const cleanForm = { ...form };
+      if (!cleanForm.assignedTo || cleanForm.assignedTo === "") {
+        delete cleanForm.assignedTo;
+      }
+      
+      if (editing) { await updateTask(editing._id, cleanForm); toast.success("Task updated!"); }
+      else { await createTask(id, cleanForm); toast.success("Task created!"); }
       setModal(null); fetchProject();
     } catch (err) {
       const errs = err.response?.data?.errors;
@@ -85,34 +151,56 @@ export default function ProjectDetail() {
           </div>
 
           <div className="card p-0 overflow-hidden">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm table-fixed">
               <thead>
                 <tr className="border-b border-surface-border bg-white/5">
-                  {["Task ID", "Type", "Text", "Prompt", "Assigned To", "Status", "Action"].map((h) => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">{h}</th>
-                  ))}
+                  <th className="text-left px-2 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-[12%]">Task ID</th>
+                  <th className="text-left px-2 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-[15%]">Type</th>
+                  <th className="text-left px-2 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-[25%]">Text</th>
+                  <th className="text-left px-2 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-[20%]">Prompt</th>
+                  <th className="text-left px-2 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-[10%]">Status</th>
+                  <th className="text-left px-2 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-[6%]">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {tasks.map((t) => (
-                  <tr key={t._id} className="border-b border-surface-border hover:bg-white/5 transition">
-                    <td className="px-4 py-3.5">
-                      <span className="font-mono text-xs text-primary-400 bg-primary-500/10 px-2 py-0.5 rounded">{t.taskId}</span>
+                  <tr
+                    key={t._id}
+                    className="border-b border-surface-border hover:bg-white/5 transition cursor-pointer"
+                    onClick={() => openSubmission(t._id)}
+                    title="View task submission"
+                  >
+                    <td className="px-2 py-3.5 w-[12%]">
+                      <span className="font-mono text-xs text-primary-400 bg-primary-500/10 px-1.5 py-0.5 rounded block truncate">{t.taskId}</span>
                     </td>
-                    <td className="px-4 py-3.5">
-                      <span className="text-xs text-slate-300 bg-white/5 border border-surface-border px-2 py-0.5 rounded">{t.type}</span>
+                    <td className="px-2 py-3.5 w-[15%]">
+                      <span className="text-xs text-slate-300 bg-white/5 border border-surface-border px-1.5 py-0.5 rounded block truncate">{t.type}</span>
                     </td>
-                    <td className="px-4 py-3.5 text-slate-300 max-w-xs truncate">{t.text}</td>
-                    <td className="px-4 py-3.5 text-slate-400 max-w-xs truncate">{t.prompt}</td>
-                    <td className="px-4 py-3.5 text-slate-400">{t.assignedTo?.name || <span className="text-slate-600">Unassigned</span>}</td>
-                    <td className="px-4 py-3.5">{statusBadge(t.status)}</td>
-                    <td className="px-4 py-3.5">
-                      <div className="flex gap-1">
-                        <button onClick={() => openEdit(t)} className="p-1.5 rounded hover:bg-white/10 text-slate-400 hover:text-white transition">
-                          <Pencil size={14} />
+                    <td className="px-2 py-3.5 w-[25%]">
+                      <div className="text-slate-300 text-xs truncate" title={t.text}>{t.text}</div>
+                    </td>
+                    <td className="px-2 py-3.5 w-[20%]">
+                      <div className="text-slate-400 text-xs truncate" title={t.prompt}>{t.prompt}</div>
+                    </td>
+                   
+                    <td className="px-2 py-3.5 w-[10%]">
+                      {statusBadge(t.status)}
+                    </td>
+                    <td className="px-1 py-3.5 w-[6%]">
+                      <div className="flex gap-0.5">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openEdit(t); }}
+                          className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition"
+                          title="Edit"
+                        >
+                          <Pencil size={12} />
                         </button>
-                        <button onClick={() => handleDelete(t._id)} className="p-1.5 rounded hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition">
-                          <Trash2 size={14} />
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDelete(t._id); }}
+                          className="p-1 rounded hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition"
+                          title="Delete"
+                        >
+                          <Trash2 size={12} />
                         </button>
                       </div>
                     </td>
@@ -165,6 +253,156 @@ export default function ProjectDetail() {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {modal === "submission" && (
+        <Modal title={selectedTask?.taskId ? `Task Submission · ${selectedTask.taskId}` : "Task Submission"} onClose={closeSubmissionModal} size="xl">
+          {submissionLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Spinner size="lg" />
+            </div>
+          ) : selectedTask ? (
+            <div className="max-h-[75vh] overflow-y-auto pr-1 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-surface-border bg-white/5 p-4">
+                  <p className="label mb-3">Project Details</p>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <p className="text-slate-500 text-xs uppercase tracking-wide">Project Name</p>
+                      <p className="text-white mt-1">{project?.name || "Not available"}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500 text-xs uppercase tracking-wide">Description</p>
+                      <p className="text-slate-300 mt-1 whitespace-pre-wrap">{project?.description || "No description"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-surface-border bg-white/5 p-4">
+                  <p className="label mb-3">Task Details</p>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-slate-500 text-xs uppercase tracking-wide">Task ID</p>
+                      <p className="text-white mt-1 font-mono">{selectedTask.taskId}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500 text-xs uppercase tracking-wide">Status</p>
+                      <div className="mt-1">{statusBadge(selectedTask.status)}</div>
+                    </div>
+                    <div>
+                      <p className="text-slate-500 text-xs uppercase tracking-wide">Type</p>
+                      <p className="text-slate-300 mt-1">{selectedTask.type}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500 text-xs uppercase tracking-wide">Assigned User</p>
+                      <p className="text-slate-300 mt-1">{selectedTask.assignedTo?.name || "Unassigned"}</p>
+                      {selectedTask.assignedTo?.email && <p className="text-slate-500 text-xs mt-0.5">{selectedTask.assignedTo.email}</p>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-surface-border bg-white/5 p-4">
+                  <div className="flex items-center gap-2 mb-3 text-slate-200">
+                    <FileText size={16} className="text-primary-400" />
+                    <p className="label m-0">Prompt</p>
+                  </div>
+                  <p className="text-slate-300 whitespace-pre-wrap text-sm leading-relaxed">{selectedTask.prompt || "No prompt provided."}</p>
+                </div>
+
+                <div className="rounded-2xl border border-surface-border bg-gradient-to-br from-primary-900/30 to-surface-card p-4 border-primary-500/20">
+                  <div className="flex items-center gap-2 mb-3 text-slate-200">
+                    <FileText size={16} className="text-primary-400" />
+                    <p className="label m-0">Text To Read</p>
+                  </div>
+                  <p className="text-white whitespace-pre-wrap text-sm leading-relaxed">{selectedTask.text || "No text provided."}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-surface-border bg-white/5 p-4">
+                  <div className="flex items-center gap-2 mb-3 text-slate-200">
+                    <FileAudio size={16} className="text-emerald-400" />
+                    <p className="label m-0">Audio Submission</p>
+                  </div>
+
+                  {submissionAudioUrl ? (
+                    <div className="space-y-4">
+                      <audio controls src={submissionAudioUrl} className="w-full" />
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-slate-500 text-xs uppercase tracking-wide">Uploaded At</p>
+                          <p className="text-slate-300 mt-1">{formatDateTime(selectedTask.audio?.uploadedAt)}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500 text-xs uppercase tracking-wide">File Size</p>
+                          <p className="text-slate-300 mt-1">{formatFileSize(selectedTask.audio?.fileSizeBytes)}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500 text-xs uppercase tracking-wide">Format</p>
+                          <p className="text-slate-300 mt-1">{selectedTask.audio?.contentType || "audio/wav"}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500 text-xs uppercase tracking-wide">Audio Spec</p>
+                          <p className="text-slate-300 mt-1">
+                            {selectedTask.audio?.sampleRate || 16000} Hz · {selectedTask.audio?.bitDepth || 16}-bit · {selectedTask.audio?.channels || 1} ch
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-surface-border bg-black/10 px-4 py-8 text-center">
+                      <Mic2 size={24} className="mx-auto mb-2 text-slate-600" />
+                      <p className="text-slate-400 text-sm">No audio submission available for this task yet.</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-surface-border bg-white/5 p-4">
+                  <div className="flex items-center gap-2 mb-3 text-slate-200">
+                    <FileText size={16} className="text-amber-400" />
+                    <p className="label m-0">Transcript</p>
+                  </div>
+                  <div className="rounded-xl bg-black/20 border border-surface-border p-4 min-h-[220px]">
+                    <p className="text-slate-300 whitespace-pre-wrap text-sm leading-relaxed">
+                      {selectedTask.transcript || "No transcript submitted yet."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="rounded-2xl border border-surface-border bg-white/5 p-4">
+                  <div className="flex items-center gap-2 text-slate-200 mb-2">
+                    <User2 size={15} className="text-sky-400" />
+                    <p className="label m-0">Assigned User</p>
+                  </div>
+                  <p className="text-white text-sm">{selectedTask.assignedTo?.name || "Unassigned"}</p>
+                  <p className="text-slate-500 text-xs mt-1">{selectedTask.assignedTo?.email || "No user email available"}</p>
+                </div>
+
+                <div className="rounded-2xl border border-surface-border bg-white/5 p-4">
+                  <div className="flex items-center gap-2 text-slate-200 mb-2">
+                    <CalendarClock size={15} className="text-primary-400" />
+                    <p className="label m-0">Created</p>
+                  </div>
+                  <p className="text-white text-sm">{formatDateTime(selectedTask.createdAt)}</p>
+                </div>
+
+                <div className="rounded-2xl border border-surface-border bg-white/5 p-4">
+                  <div className="flex items-center gap-2 text-slate-200 mb-2">
+                    <CalendarClock size={15} className="text-emerald-400" />
+                    <p className="label m-0">Last Updated</p>
+                  </div>
+                  <p className="text-white text-sm">{formatDateTime(selectedTask.updatedAt)}</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="py-12 text-center text-slate-400 text-sm">Task submission details are not available.</div>
+          )}
         </Modal>
       )}
     </AdminLayout>

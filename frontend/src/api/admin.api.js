@@ -21,3 +21,6 @@ export const getTasksByProject = (projectId) => api.get(`/admin/projects/${proje
 export const getTaskById = (id) => api.get(`/admin/tasks/${id}`);
 export const updateTask = (id, data) => api.patch(`/admin/tasks/${id}`, data);
 export const deleteTask = (id) => api.delete(`/admin/tasks/${id}`);
+
+// Admin view user submissions
+export const streamTaskAudio = (id) => api.get(`/admin/tasks/${id}/audio`, { responseType: 'blob' });
