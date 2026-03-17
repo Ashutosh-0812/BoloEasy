@@ -1,5 +1,5 @@
 const dao = require("../dao/user.dao");
-const { uploadAudioToS3, deleteAudioFromS3 } = require("../../../services/s3.service");
+const { uploadAudio, deleteAudio } = require("../../../services/cloudinary.service");
 const logger = require("../../../logging/logger");
 
 const getMyTasks = async (userId) => {
@@ -21,35 +21,32 @@ const getTaskDetail = async (taskId, userId) => {
   return task;
 };
 
-const uploadAudio = async (taskId, audioBuffer, userId, fileSize) => {
+const uploadTaskAudio = async (taskId, audioBuffer, userId, fileSize) => {
   // Validate task ownership
   const existing = await getTaskDetail(taskId, userId);
 
-  // If there's an old S3 file, delete it first
-  if (existing.audio && existing.audio.s3Key) {
+  if (existing.audio && existing.audio.publicId) {
     try {
-      await deleteAudioFromS3(existing.audio.s3Key);
+      await deleteAudio(existing.audio.publicId);
     } catch (delErr) {
-      logger.warn(`Could not delete old S3 audio for task ${taskId}: ${delErr.message}`);
+      logger.warn(`Could not delete old Cloudinary audio for task ${taskId}: ${delErr.message}`);
     }
   }
 
-  // Upload to S3
-  const { s3Key, s3Url, fileSizeBytes } = await uploadAudioToS3(audioBuffer, taskId, userId);
+  const { publicId, url, fileSizeBytes } = await uploadAudio(audioBuffer, taskId, userId);
 
-  // Persist S3 metadata to MongoDB
   const status = existing.transcript?.trim() ? "completed" : "in-progress";
-  const task = await dao.saveAudio(taskId, { s3Key, s3Url, fileSizeBytes, status });
-  logger.info(`Audio saved to S3 for task ${taskId} | user: ${userId} | key: ${s3Key}`);
+  const task = await dao.saveAudio(taskId, { publicId, url, fileSizeBytes, status });
+  logger.info(`Audio saved to Cloudinary for task ${taskId} | user: ${userId} | publicId: ${publicId}`);
   return task;
 };
 
 const submitTranscript = async (taskId, transcript, userId) => {
   const existing = await getTaskDetail(taskId, userId);
-  const status = existing.audio?.s3Key ? "completed" : "in-progress";
+  const status = existing.audio?.publicId ? "completed" : "in-progress";
   const task = await dao.saveTranscript(taskId, transcript, status);
   logger.info(`Transcript submitted for task ${taskId} by user ${userId}`);
   return task;
 };
 
-module.exports = { getMyTasks, getTaskDetail, uploadAudio, submitTranscript };
+module.exports = { getMyTasks, getTaskDetail, uploadAudio: uploadTaskAudio, submitTranscript };

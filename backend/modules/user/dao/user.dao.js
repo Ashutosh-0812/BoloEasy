@@ -8,12 +8,13 @@ const getTaskByIdForUser = async (taskId) => {
   return Task.findById(taskId);
 };
 
-const saveAudio = async (taskId, { s3Key, s3Url, fileSizeBytes, status }) => {
+const saveAudio = async (taskId, { publicId, url, fileSizeBytes, status }) => {
   return Task.findByIdAndUpdate(
     taskId,
     {
-      "audio.s3Key": s3Key,
-      "audio.s3Url": s3Url,
+      "audio.provider": "cloudinary",
+      "audio.publicId": publicId,
+      "audio.url": url,
       "audio.contentType": "audio/wav",
       "audio.sampleRate": 16000,
       "audio.bitDepth": 16,

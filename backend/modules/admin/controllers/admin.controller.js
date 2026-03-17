@@ -135,12 +135,12 @@ const deleteTask = async (req, res, next) => {
 const streamTaskAudio = async (req, res, next) => {
   try {
     const task = await svc.getTaskById(req.params.id);
-    if (!task.audio || !task.audio.s3Key) {
+    if (!task.audio || !task.audio.url) {
       return errorResponse(res, "No audio found for this task.", 404);
     }
-    
-    const { getAudioStream } = require("../../../services/s3.service");
-    const stream = await getAudioStream(task.audio.s3Key);
+
+    const { getAudioStream } = require("../../../services/cloudinary.service");
+    const stream = await getAudioStream(task.audio.url);
     
     res.setHeader("Content-Type", task.audio.contentType || "audio/wav");
     res.setHeader("Content-Disposition", `attachment; filename="${task.taskId}.wav"`);

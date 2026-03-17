@@ -1,5 +1,5 @@
 const userSvc = require("../services/user.service");
-const { getAudioStream } = require("../../../services/s3.service");
+const { getAudioStream } = require("../../../services/cloudinary.service");
 const { successResponse, errorResponse } = require("../../../responses/apiResponse");
 const logger = require("../../../logging/logger");
 
@@ -32,12 +32,13 @@ const uploadAudio = async (req, res, next) => {
 
     const task = await userSvc.uploadAudio(req.params.id, req.file.buffer, req.user.id, req.file.size);
 
-    return successResponse(res, "Audio uploaded successfully to S3.", {
+    return successResponse(res, "Audio uploaded successfully to Cloudinary.", {
       taskId: task.taskId,
       status: task.status,
       audio: {
-        s3Url: task.audio.s3Url,
-        s3Key: task.audio.s3Key,
+        provider: task.audio.provider,
+        publicId: task.audio.publicId,
+        url: task.audio.url,
         contentType: task.audio.contentType,
         sampleRate: task.audio.sampleRate,
         bitDepth: task.audio.bitDepth,
@@ -63,20 +64,19 @@ const submitTranscript = async (req, res, next) => {
 };
 
 /**
- * Stream audio directly from S3 back to the client.
- * The S3 key is fetched from the task doc — users can only stream their own tasks.
+ * Stream audio from Cloudinary back to the client.
  */
 const streamAudio = async (req, res, next) => {
   try {
     const task = await userSvc.getTaskDetail(req.params.id, req.user.id);
 
-    if (!task.audio || !task.audio.s3Key) {
+    if (!task.audio || !task.audio.url) {
       return errorResponse(res, "No audio recorded for this task yet.", 404);
     }
 
-    logger.info(`Audio stream | task: ${req.params.id} | user: ${req.user.id} | key: ${task.audio.s3Key}`);
+    logger.info(`Audio stream | task: ${req.params.id} | user: ${req.user.id} | url: ${task.audio.url}`);
 
-    const stream = await getAudioStream(task.audio.s3Key);
+    const stream = await getAudioStream(task.audio.url);
     res.setHeader("Content-Type", task.audio.contentType || "audio/wav");
     res.setHeader("Content-Disposition", `attachment; filename="${task.taskId}.wav"`);
     stream.pipe(res);

@@ -38,8 +38,9 @@ const taskSchema = new mongoose.Schema(
       maxlength: [1000, "Prompt must be at most 1000 characters"],
     },
     audio: {
-      s3Key: { type: String, default: null },       // S3 object key
-      s3Url: { type: String, default: null },       // Public/direct S3 URL
+      provider: { type: String, default: null },
+      publicId: { type: String, default: null },
+      url: { type: String, default: null },
       contentType: { type: String, default: "audio/wav" },
       sampleRate: { type: Number, default: 16000 },
       bitDepth: { type: Number, default: 16 },
