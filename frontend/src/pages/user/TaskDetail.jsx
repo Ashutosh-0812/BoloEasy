@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import UserLayout from "../../components/layout/UserLayout";
 import { getTaskDetail, uploadAudio, submitTranscript } from "../../api/user.api";
 import {
-  ChevronLeft, Mic, Square, Upload, CheckCircle2, Loader2, Send,
+  ChevronLeft, Mic, Square, CheckCircle2, Send,
 } from "lucide-react";
 import { PageSpinner, Spinner } from "../../components/ui/Spinner";
 import toast from "react-hot-toast";
@@ -23,13 +23,18 @@ export default function TaskDetail() {
   const [recording, setRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState(null);
   const [audioUrl, setAudioUrl] = useState(null);
-  const [uploading, setUploading] = useState(false);
   const mediaRef = useRef(null);
   const chunksRef = useRef([]);
+  const recognitionRef = useRef(null);
+  const recognitionBaseRef = useRef("");
+  const recognitionFinalRef = useRef("");
+  const recordingRef = useRef(false);
 
   // Transcript
   const [transcript, setTranscript] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [isSpeechSupported, setIsSpeechSupported] = useState(false);
+  const [isLiveRecognitionOn, setIsLiveRecognitionOn] = useState(false);
 
   const fetchTask = () => {
     getTaskDetail(id)
@@ -41,10 +46,98 @@ export default function TaskDetail() {
       .finally(() => setLoading(false));
   };
   useEffect(() => { fetchTask(); }, [id]);
+  useEffect(() => { recordingRef.current = recording; }, [recording]);
+
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setIsSpeechSupported(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    recognition.onresult = (event) => {
+      let interim = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const chunk = event.results[i][0]?.transcript || "";
+        if (!chunk) continue;
+        if (event.results[i].isFinal) {
+          recognitionFinalRef.current += `${chunk} `;
+        } else {
+          interim += chunk;
+        }
+      }
+
+      const combined = `${recognitionBaseRef.current}${recognitionFinalRef.current}${interim}`.trim();
+      setTranscript(combined);
+    };
+
+    recognition.onstart = () => {
+      setIsLiveRecognitionOn(true);
+    };
+
+    recognition.onerror = (event) => {
+      if (event.error !== "aborted") {
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          toast.error("Live transcript permission denied by browser.");
+        } else {
+          toast.error("Live transcript stopped. Check browser support and microphone permissions.");
+        }
+      }
+      setIsLiveRecognitionOn(false);
+    };
+
+    recognition.onend = () => {
+      // Some browsers end recognition automatically; keep it running during active recording.
+      if (recordingRef.current) {
+        try {
+          recognition.start();
+          return;
+        } catch {
+          // No-op: if restart fails, we just show inactive state.
+        }
+      }
+      setIsLiveRecognitionOn(false);
+    };
+
+    recognitionRef.current = recognition;
+    setIsSpeechSupported(true);
+
+    return () => {
+      recognitionRef.current?.stop();
+      recognitionRef.current = null;
+    };
+  }, []);
+
+  const startLiveTranscript = () => {
+    if (!recognitionRef.current || !isSpeechSupported) return;
+    if (!window.isSecureContext && window.location.hostname !== "localhost") {
+      toast.error("Live transcript requires HTTPS (or localhost). ");
+      return;
+    }
+    recognitionBaseRef.current = transcript.trim() ? `${transcript.trim()} ` : "";
+    recognitionFinalRef.current = "";
+    try {
+      recognitionRef.current.start();
+    } catch {
+      toast.error("Could not start live transcript in this browser.");
+    }
+  };
+
+  const stopLiveTranscript = () => {
+    recognitionRef.current?.stop();
+    setIsLiveRecognitionOn(false);
+  };
 
   // ─── Recording ───────────────────────────────────────────────────────────────
   const startRecording = async () => {
     try {
+      startLiveTranscript();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       chunksRef.current = [];
       const mr = new MediaRecorder(stream, { mimeType: "audio/webm" });
@@ -58,7 +151,12 @@ export default function TaskDetail() {
       mr.start();
       mediaRef.current = mr;
       setRecording(true);
+
+      if (!isSpeechSupported) {
+        toast("Live transcript is not supported in this browser.");
+      }
     } catch {
+      stopLiveTranscript();
       toast.error("Microphone access denied. Please allow mic access.");
     }
   };
@@ -66,36 +164,37 @@ export default function TaskDetail() {
   const stopRecording = () => {
     mediaRef.current?.stop();
     setRecording(false);
+    stopLiveTranscript();
   };
 
-  const handleUploadAudio = async () => {
-    if (!audioBlob) return;
-    setUploading(true);
-    try {
-      const file = new File([audioBlob], `${task.taskId}.wav`, { type: "audio/wav" });
-      await uploadAudio(id, file);
-      toast.success("Audio uploaded to S3 successfully!");
-      fetchTask();
-      setAudioBlob(null);
-      setAudioUrl(null);
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Upload failed");
-    } finally {
-      setUploading(false);
+  // ─── Final Submission ───────────────────────────────────────────────────────
+  const handleSubmitTask = async () => {
+    if (recording) {
+      toast.error("Stop recording before submitting.");
+      return;
     }
-  };
 
-  // ─── Transcript ───────────────────────────────────────────────────────────────
-  const handleSubmitTranscript = async () => {
+    if (!audioBlob && !task?.audio?.s3Key) {
+      toast.error("Please record audio before submitting.");
+      return;
+    }
+
     if (!transcript.trim()) {
       toast.error("Transcript cannot be empty");
       return;
     }
+
     setSubmitting(true);
     try {
+      if (audioBlob) {
+        const file = new File([audioBlob], `${task.taskId}.wav`, { type: "audio/wav" });
+        await uploadAudio(id, file);
+      }
       await submitTranscript(id, transcript);
-      toast.success("Transcript submitted!");
+      toast.success("Task submitted successfully!");
       fetchTask();
+      setAudioBlob(null);
+      setAudioUrl(null);
     } catch (err) {
       toast.error(err.response?.data?.message || "Submission failed");
     } finally {
@@ -176,21 +275,18 @@ export default function TaskDetail() {
               <p className="text-sm text-slate-400">
                 {recording ? <span className="text-red-400 font-medium animate-pulse">● Recording…</span> : "Tap to record"}
               </p>
+             
 
               {/* Playback */}
               {audioUrl && !recording && (
                 <div className="w-full space-y-3">
                   <audio controls src={audioUrl} className="w-full rounded-lg" />
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
                     <button onClick={() => { setAudioBlob(null); setAudioUrl(null); }}
                       className="btn-secondary flex-1 text-center">
                       Re-record
                     </button>
-                    <button onClick={handleUploadAudio} disabled={uploading}
-                      className="btn-primary flex-1 flex items-center justify-center gap-2">
-                      {uploading ? <Spinner size="sm" /> : <Upload size={15} />}
-                      {uploading ? "Uploading…" : "Upload to S3"}
-                    </button>
+                    <span className="text-xs text-emerald-400">Audio ready for submit</span>
                   </div>
                 </div>
               )}
@@ -212,10 +308,10 @@ export default function TaskDetail() {
                 <CheckCircle2 size={13} /> Transcript previously submitted
               </div>
             )}
-            <button onClick={handleSubmitTranscript} disabled={submitting}
+            <button onClick={handleSubmitTask} disabled={submitting}
               className="btn-primary w-full flex items-center justify-center gap-2 py-2.5">
               {submitting ? <Spinner size="sm" /> : <Send size={15} />}
-              {submitting ? "Submitting…" : "Submit Transcript"}
+              {submitting ? "Submitting…" : "Submit Task"}
             </button>
           </div>
         </div>

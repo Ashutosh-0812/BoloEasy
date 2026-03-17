@@ -26,8 +26,8 @@ export default function UserDashboard() {
 
   return (
     <UserLayout>
-      <h1 className="text-2xl font-bold text-white mb-1">My Tasks</h1>
-      <p className="text-slate-500 text-sm mb-8">Complete your assigned recording tasks</p>
+      <h1 className="text-xl sm:text-2xl font-bold text-white mb-1">My Tasks</h1>
+      <p className="text-slate-500 text-sm mb-6 sm:mb-8">Complete your assigned recording tasks</p>
 
       {loading ? <PageSpinner /> : (
         <>

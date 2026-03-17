@@ -38,7 +38,7 @@ export default function Login() {
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary-600 mb-4">
             <Mic2 size={28} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white">BoloEasy</h1>
+          <h1 className="text-2xl font-bold text-white">Bolo</h1>
           <p className="text-slate-400 text-sm mt-1">Sign in to your account</p>
         </div>
 
@@ -47,7 +47,7 @@ export default function Login() {
             <div>
               <label className="label">Email</label>
               <input name="email" type="email" value={form.email} onChange={handleChange}
-                className="input" placeholder="admin@boloeasy.com" required />
+                className="input" placeholder="admin@bolo.com" required />
             </div>
             <div>
               <label className="label">Password</label>

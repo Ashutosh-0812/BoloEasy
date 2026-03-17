@@ -140,18 +140,60 @@ export default function ProjectDetail() {
 
       {loading ? <PageSpinner /> : (
         <>
-          <div className="flex items-start justify-between mb-8">
+          <div className="flex items-start justify-between mb-8 gap-4 flex-wrap">
             <div>
               <h1 className="text-2xl font-bold text-white mb-1">{project?.name}</h1>
               <p className="text-slate-500 text-sm">{project?.description || "No description"}</p>
             </div>
-            <button onClick={openCreate} className="btn-primary flex items-center gap-2">
+            <button onClick={openCreate} className="btn-primary flex items-center gap-2 shrink-0">
               <Plus size={16} /> Add Task
             </button>
           </div>
 
           <div className="card p-0 overflow-hidden">
-            <table className="w-full text-sm table-fixed">
+            {/* Mobile card list */}
+            <div className="sm:hidden divide-y divide-surface-border">
+              {tasks.map((t) => (
+                <div
+                  key={t._id}
+                  className="p-4 space-y-2 cursor-pointer hover:bg-white/5 transition"
+                  onClick={() => openSubmission(t._id)}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-xs text-primary-400 bg-primary-500/10 px-2 py-0.5 rounded truncate">{t.taskId}</span>
+                    {statusBadge(t.status)}
+                  </div>
+                  <p className="text-xs text-slate-300 bg-white/5 border border-surface-border px-2 py-0.5 rounded w-fit">{t.type}</p>
+                  <p className="text-xs text-slate-300 line-clamp-2">{t.text}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-slate-500 truncate">{t.prompt}</p>
+                    <div className="flex gap-1 shrink-0">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openEdit(t); }}
+                        className="p-1.5 rounded hover:bg-white/10 text-slate-400 hover:text-white transition"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDelete(t._id); }}
+                        className="p-1.5 rounded hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {!tasks.length && (
+                <div className="px-4 py-12 text-center text-slate-500">
+                  <Mic2 size={32} className="mx-auto mb-2 opacity-30" />
+                  No tasks yet. Add your first task.
+                </div>
+              )}
+            </div>
+
+            {/* Desktop table */}
+            <table className="hidden sm:table w-full text-sm table-fixed">
               <thead>
                 <tr className="border-b border-surface-border bg-white/5">
                   <th className="text-left px-2 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-[12%]">Task ID</th>
@@ -182,7 +224,6 @@ export default function ProjectDetail() {
                     <td className="px-2 py-3.5 w-[20%]">
                       <div className="text-slate-400 text-xs truncate" title={t.prompt}>{t.prompt}</div>
                     </td>
-                   
                     <td className="px-2 py-3.5 w-[10%]">
                       {statusBadge(t.status)}
                     </td>

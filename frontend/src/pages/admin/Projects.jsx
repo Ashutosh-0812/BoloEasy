@@ -63,12 +63,12 @@ export default function AdminProjects() {
 
   return (
     <AdminLayout>
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-start justify-between mb-8 gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Projects</h1>
           <p className="text-slate-500 text-sm">Create and manage annotation projects</p>
         </div>
-        <button onClick={openCreate} className="btn-primary flex items-center gap-2">
+        <button onClick={openCreate} className="btn-primary flex items-center gap-2 shrink-0">
           <Plus size={16} /> New Project
         </button>
       </div>
