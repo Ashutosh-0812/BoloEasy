@@ -19,8 +19,8 @@ export default function AdminDashboard() {
 
   return (
     <AdminLayout>
-      <h1 className="text-xl sm:text-2xl font-bold text-white mb-1">Dashboard</h1>
-      <p className="text-slate-500 text-sm mb-6 sm:mb-8">Overview of your Bolo platform</p>
+      <h1 className="text-xl sm:text-2xl font-bold text-primary-900 mb-1">Dashboard</h1>
+      <p className="text-primary-400 text-sm mb-6 sm:mb-8">Overview of your Bolo platform</p>
 
       {loading ? <PageSpinner /> : (
         <>
@@ -35,7 +35,7 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Task breakdown */}
             <div className="card">
-              <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-4">Task Status</h2>
+              <h2 className="text-sm font-semibold text-primary-500 uppercase tracking-wide mb-4">Task Status</h2>
               {[
                 { label: "Pending", val: stats?.tasks?.pending, color: "bg-amber-500" },
                 { label: "In Progress", val: stats?.tasks?.inProgress, color: "bg-blue-500" },
@@ -44,10 +44,10 @@ export default function AdminDashboard() {
                 const pct = stats?.tasks?.total ? Math.round((val / stats.tasks.total) * 100) : 0;
                 return (
                   <div key={label} className="mb-3">
-                    <div className="flex justify-between text-xs text-slate-400 mb-1">
+                    <div className="flex justify-between text-xs text-primary-500 mb-1">
                       <span>{label}</span><span>{val} ({pct}%)</span>
                     </div>
-                    <div className="h-1.5 bg-surface rounded-full">
+                    <div className="h-1.5 bg-primary-100 rounded-full">
                       <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
                     </div>
                   </div>
@@ -57,15 +57,15 @@ export default function AdminDashboard() {
 
             {/* User breakdown */}
             <div className="card">
-              <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-4">Users</h2>
+              <h2 className="text-sm font-semibold text-primary-500 uppercase tracking-wide mb-4">Users</h2>
               <div className="space-y-3">
                 {[
-                  { label: "Verified", value: stats?.users?.verified, color: "text-emerald-400" },
-                  { label: "Pending", value: stats?.users?.pending, color: "text-amber-400" },
-                  { label: "Total", value: stats?.users?.total, color: "text-white" },
+                  { label: "Verified", value: stats?.users?.verified, color: "text-emerald-500" },
+                  { label: "Pending", value: stats?.users?.pending, color: "text-amber-500" },
+                  { label: "Total", value: stats?.users?.total, color: "text-primary-900" },
                 ].map(({ label, value, color }) => (
-                  <div key={label} className="flex items-center justify-between py-2 border-b border-surface-border last:border-0">
-                    <span className="text-sm text-slate-400">{label}</span>
+                  <div key={label} className="flex items-center justify-between py-2 border-b border-primary-100 last:border-0">
+                    <span className="text-sm text-primary-500">{label}</span>
                     <span className={`font-bold text-lg ${color}`}>{value}</span>
                   </div>
                 ))}

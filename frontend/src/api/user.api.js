@@ -12,7 +12,7 @@ export const uploadAudio = (id, file) => {
   });
 };
 
-// Stream audio from S3
+// Stream uploaded audio through the backend proxy
 export const streamAudio = (id) => api.get(`/user/tasks/${id}/audio`, { 
   responseType: 'blob' 
 });

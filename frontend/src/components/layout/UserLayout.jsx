@@ -10,12 +10,12 @@ const NAV = [
 function SidebarContent({ user, onLogout, onNavClick }) {
   return (
     <>
-      <div className="p-6 border-b border-surface-border">
+      <div className="p-6 border-b border-white/20">
         <div className="flex items-center gap-2">
-          <Mic2 className="text-primary-500" size={22} />
+          <Mic2 className="text-white" size={22} />
           <span className="font-bold text-lg text-white tracking-tight">Bolo</span>
         </div>
-        <span className="text-xs text-emerald-400 font-semibold uppercase tracking-widest mt-0.5 block">User Panel</span>
+        <span className="text-xs text-white/60 font-semibold uppercase tracking-widest mt-0.5 block">User Panel</span>
       </div>
       <nav className="flex-1 p-4 space-y-1">
         {NAV.map(({ to, label, icon: Icon, end }) => (
@@ -26,17 +26,17 @@ function SidebarContent({ user, onLogout, onNavClick }) {
           </NavLink>
         ))}
       </nav>
-      <div className="p-4 border-t border-surface-border">
+      <div className="p-4 border-t border-white/20">
         <div className="flex items-center gap-3 mb-3 px-2">
-          <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-sm font-bold shrink-0">
+          <div className="w-8 h-8 rounded-full bg-white/25 flex items-center justify-center text-sm font-bold shrink-0 text-white">
             {user?.name?.[0]?.toUpperCase()}
           </div>
           <div className="min-w-0">
             <p className="text-sm font-medium text-white truncate">{user?.name}</p>
-            <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+            <p className="text-xs text-white/50 truncate">{user?.email}</p>
           </div>
         </div>
-        <button onClick={onLogout} className="sidebar-link w-full text-red-400 hover:text-red-300 hover:bg-red-500/10">
+        <button onClick={onLogout} className="sidebar-link w-full text-red-300 hover:text-red-200 hover:bg-red-500/20">
           <LogOut size={17} /> Logout
         </button>
       </div>

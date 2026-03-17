@@ -5,19 +5,21 @@ export default {
     extend: {
       colors: {
         primary: {
-          50: "#eef2ff",
-          100: "#e0e7ff",
-          300: "#a5b4fc",
-          400: "#818cf8",
-          500: "#6366f1",
-          600: "#4f46e5",
-          700: "#4338ca",
-          900: "#312e81",
+          50: "#f0f0fc",
+          100: "#e8e8f9",
+          200: "#d0d0f2",
+          300: "#6f6dc9",
+          400: "#3d3bb5",
+          500: "#1a18a3",
+          600: "#05048D",
+          700: "#040378",
+          800: "#030260",
+          900: "#020150",
         },
         surface: {
-          DEFAULT: "#0f172a",
-          card: "#1e293b",
-          border: "#334155",
+          DEFAULT: "#ffffff",
+          card: "#05048D",
+          border: "#c5c4f0",
         },
       },
       fontFamily: {

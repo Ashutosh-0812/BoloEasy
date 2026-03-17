@@ -174,7 +174,7 @@ export default function TaskDetail() {
       return;
     }
 
-    if (!audioBlob && !task?.audio?.s3Key) {
+    if (!audioBlob && !(task?.audio?.publicId || task?.audio?.url)) {
       toast.error("Please record audio before submitting.");
       return;
     }
@@ -240,13 +240,13 @@ export default function TaskDetail() {
           </div>
 
           {/* Audio status */}
-          {task.audio?.s3Key && (
+          {(task.audio?.publicId || task.audio?.url) && (
             <div className="card border-emerald-500/30">
               <p className="label text-emerald-400 mb-2">Audio Recorded</p>
               <div className="flex items-center gap-3 text-xs text-slate-400">
                 <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
                 <div>
-                  <p className="text-emerald-300 font-medium">Audio uploaded to S3</p>
+                  <p className="text-emerald-300 font-medium">Audio uploaded successfully</p>
                   <p className="mt-0.5">{(task.audio.fileSizeBytes / 1024).toFixed(1)} KB · {task.audio.sampleRate} Hz · {task.audio.bitDepth}-bit · Mono</p>
                   <p className="mt-0.5 text-slate-500">{new Date(task.audio.uploadedAt).toLocaleString()}</p>
                 </div>

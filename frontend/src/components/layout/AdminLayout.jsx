@@ -14,12 +14,12 @@ const NAV = [
 function SidebarContent({ user, onLogout, onNavClick }) {
   return (
     <>
-      <div className="p-6 border-b border-surface-border">
+      <div className="p-6 border-b border-white/20">
         <div className="flex items-center gap-2">
-          <Mic2 className="text-primary-500" size={22} />
+          <Mic2 className="text-white" size={22} />
           <span className="font-bold text-lg text-white tracking-tight">Bolo</span>
         </div>
-        <span className="text-xs text-primary-400 font-semibold uppercase tracking-widest mt-0.5 block">Admin Panel</span>
+        <span className="text-xs text-white/60 font-semibold uppercase tracking-widest mt-0.5 block">Admin Panel</span>
       </div>
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {NAV.map(({ to, label, icon: Icon, end }) => (
@@ -32,17 +32,17 @@ function SidebarContent({ user, onLogout, onNavClick }) {
           </NavLink>
         ))}
       </nav>
-      <div className="p-4 border-t border-surface-border">
+      <div className="p-4 border-t border-white/20">
         <div className="flex items-center gap-3 mb-3 px-2">
-          <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center text-sm font-bold shrink-0">
+          <div className="w-8 h-8 rounded-full bg-white/25 flex items-center justify-center text-sm font-bold shrink-0 text-white">
             {user?.name?.[0]?.toUpperCase()}
           </div>
           <div className="min-w-0">
             <p className="text-sm font-medium text-white truncate">{user?.name}</p>
-            <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+            <p className="text-xs text-white/50 truncate">{user?.email}</p>
           </div>
         </div>
-        <button onClick={onLogout} className="sidebar-link w-full text-red-400 hover:text-red-300 hover:bg-red-500/10">
+        <button onClick={onLogout} className="sidebar-link w-full text-red-300 hover:text-red-200 hover:bg-red-500/20">
           <LogOut size={17} /> Logout
         </button>
       </div>
@@ -80,15 +80,15 @@ export default function AdminLayout({ children }) {
       {/* Main */}
       <main className="flex-1 overflow-y-auto bg-surface flex flex-col min-w-0">
         {/* Mobile top bar */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-surface-border bg-surface-card md:hidden shrink-0">
-          <button onClick={() => setSidebarOpen(true)} className="text-slate-400 hover:text-white transition">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-white/20 bg-primary-600 md:hidden shrink-0">
+          <button onClick={() => setSidebarOpen(true)} className="text-white/70 hover:text-white transition">
             <Menu size={22} />
           </button>
           <div className="flex items-center gap-2">
-            <Mic2 className="text-primary-500" size={18} />
+            <Mic2 className="text-white" size={18} />
             <span className="font-bold text-white tracking-tight">Bolo</span>
           </div>
-          <span className="text-xs text-primary-400 font-semibold uppercase tracking-widest ml-1">Admin</span>
+          <span className="text-xs text-white/60 font-semibold uppercase tracking-widest ml-1">Admin</span>
         </div>
         <div className="flex-1 overflow-y-auto p-4 md:p-8">{children}</div>
       </main>

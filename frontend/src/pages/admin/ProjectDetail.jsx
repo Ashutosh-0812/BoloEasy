@@ -90,7 +90,7 @@ export default function ProjectDetail() {
       const taskData = taskResponse.data.data;
       setSelectedTask(taskData);
 
-      if (taskData.audio?.s3Key) {
+      if (taskData.audio?.publicId || taskData.audio?.url) {
         try {
           const audioResponse = await streamTaskAudio(taskId);
           const audioBlobUrl = URL.createObjectURL(audioResponse.data);

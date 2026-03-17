@@ -65,8 +65,8 @@ export default function AdminProjects() {
     <AdminLayout>
       <div className="flex items-start justify-between mb-8 gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1">Projects</h1>
-          <p className="text-slate-500 text-sm">Create and manage annotation projects</p>
+          <h1 className="text-2xl font-bold text-primary-900 mb-1">Projects</h1>
+          <p className="text-primary-400 text-sm">Create and manage annotation projects</p>
         </div>
         <button onClick={openCreate} className="btn-primary flex items-center gap-2 shrink-0">
           <Plus size={16} /> New Project
@@ -76,36 +76,36 @@ export default function AdminProjects() {
       {loading ? <PageSpinner /> : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {projects.map((p) => (
-            <div key={p._id} className="card hover:border-primary-500/50 transition group cursor-pointer"
+            <div key={p._id} className="bg-primary-600 rounded-xl p-6 shadow-md hover:bg-primary-700 transition group cursor-pointer border border-primary-500"
               onClick={() => navigate(`/admin/projects/${p._id}`)}>
               <div className="flex items-start justify-between mb-4">
-                <div className="w-10 h-10 rounded-lg bg-primary-500/10 flex items-center justify-center">
-                  <FolderOpen size={18} className="text-primary-400" />
+                <div className="w-10 h-10 rounded-lg bg-white/15 flex items-center justify-center">
+                  <FolderOpen size={18} className="text-white" />
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                  <button className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white"
+                  <button className="p-1.5 rounded-lg hover:bg-white/20 text-white/60 hover:text-white"
                     onClick={(e) => { e.stopPropagation(); openEdit(p); }}>
                     <Pencil size={14} />
                   </button>
-                  <button className="p-1.5 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400"
+                  <button className="p-1.5 rounded-lg hover:bg-red-500/30 text-white/60 hover:text-red-300"
                     onClick={(e) => { e.stopPropagation(); handleDelete(p._id); }}>
                     <Trash2 size={14} />
                   </button>
                 </div>
               </div>
               <h3 className="font-semibold text-white mb-1">{p.name}</h3>
-              <p className="text-sm text-slate-500 mb-4 line-clamp-2">{p.description || "No description"}</p>
-              <div className="flex items-center justify-between text-xs text-slate-500">
+              <p className="text-sm text-white/60 mb-4 line-clamp-2">{p.description || "No description"}</p>
+              <div className="flex items-center justify-between text-xs text-white/50">
                 <span>{p.tasks?.length ?? 0} tasks</span>
-                <span className="flex items-center gap-0.5 text-primary-400 font-medium">
+                <span className="flex items-center gap-0.5 text-white font-medium">
                   View <ChevronRight size={13} />
                 </span>
               </div>
             </div>
           ))}
           {!projects.length && (
-            <div className="col-span-3 text-center py-20 text-slate-500">
-              <FolderOpen size={36} className="mx-auto mb-3 opacity-30" />
+            <div className="col-span-3 text-center py-20 text-primary-300">
+              <FolderOpen size={36} className="mx-auto mb-3 opacity-40" />
               <p>No projects yet. Create one to get started.</p>
             </div>
           )}

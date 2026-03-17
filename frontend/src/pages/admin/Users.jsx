@@ -35,8 +35,8 @@ export default function AdminUsers() {
 
   return (
     <AdminLayout>
-      <h1 className="text-xl sm:text-2xl font-bold text-white mb-1">Users</h1>
-      <p className="text-slate-500 text-sm mb-6 sm:mb-8">Manage and verify registered users</p>
+      <h1 className="text-xl sm:text-2xl font-bold text-primary-900 mb-1">Users</h1>
+      <p className="text-primary-400 text-sm mb-6 sm:mb-8">Manage and verify registered users</p>
 
       {loading ? <PageSpinner /> : (
         <div className="card p-0 overflow-hidden">
@@ -46,8 +46,8 @@ export default function AdminUsers() {
               <div key={u._id} className="p-4 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="font-medium text-white truncate">{u.name}</p>
-                    <p className="text-xs text-slate-400 truncate">{u.email}</p>
+                    <p className="font-medium text-primary-900 truncate">{u.name}</p>
+                    <p className="text-xs text-primary-400 truncate">{u.email}</p>
                   </div>
                   <span className={u.role === "admin" ? "badge-admin shrink-0" : "badge-user shrink-0"}>{u.role}</span>
                 </div>
@@ -56,7 +56,7 @@ export default function AdminUsers() {
                     {u.isVerified
                       ? <span className="badge-done flex items-center gap-1"><CheckCircle size={12} /> Verified</span>
                       : <span className="badge-pending flex items-center gap-1"><Clock size={12} /> Pending</span>}
-                    <span className="text-xs text-slate-500">{new Date(u.createdAt).toLocaleDateString()}</span>
+                    <span className="text-xs text-primary-400">{new Date(u.createdAt).toLocaleDateString()}</span>
                   </div>
                   {!u.isVerified && (
                     <button onClick={() => handleVerify(u._id)} disabled={verifying === u._id}
@@ -76,17 +76,17 @@ export default function AdminUsers() {
           {/* Desktop table */}
           <table className="hidden sm:table w-full text-sm">
             <thead>
-              <tr className="border-b border-surface-border bg-white/5">
+              <tr className="border-b border-primary-100 bg-primary-50/30">
                 {["Name", "Email", "Role", "Status", "Joined", "Action"].map((h) => (
-                  <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-slate-400 uppercase tracking-wide">{h}</th>
+                  <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-primary-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u._id} className="border-b border-surface-border hover:bg-white/5 transition">
-                  <td className="px-5 py-4 font-medium text-white">{u.name}</td>
-                  <td className="px-5 py-4 text-slate-400">{u.email}</td>
+                <tr key={u._id} className="border-b border-primary-100 hover:bg-primary-50/40 transition">
+                  <td className="px-5 py-4 font-medium text-primary-900">{u.name}</td>
+                  <td className="px-5 py-4 text-primary-500">{u.email}</td>
                   <td className="px-5 py-4">
                     <span className={u.role === "admin" ? "badge-admin" : "badge-user"}>{u.role}</span>
                   </td>
@@ -95,7 +95,7 @@ export default function AdminUsers() {
                       ? <span className="badge-done flex items-center gap-1 w-fit"><CheckCircle size={12} /> Verified</span>
                       : <span className="badge-pending flex items-center gap-1 w-fit"><Clock size={12} /> Pending</span>}
                   </td>
-                  <td className="px-5 py-4 text-slate-500">{new Date(u.createdAt).toLocaleDateString()}</td>
+                  <td className="px-5 py-4 text-primary-400">{new Date(u.createdAt).toLocaleDateString()}</td>
                   <td className="px-5 py-4">
                     {!u.isVerified && (
                       <button onClick={() => handleVerify(u._id)} disabled={verifying === u._id}
