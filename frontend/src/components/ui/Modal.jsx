@@ -14,12 +14,12 @@ export default function Modal({ title, children, onClose, size = "md" }) {
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm px-0 sm:px-4"
       onClick={onClose}>
       <div
-        className={`bg-surface-card border border-surface-border rounded-t-2xl sm:rounded-2xl w-full ${widths[size]} shadow-2xl max-h-[90vh] flex flex-col`}
+        className={`bg-[#f3f6f1] border border-[#bcc8b7] rounded-t-2xl sm:rounded-2xl w-full ${widths[size]} shadow-2xl max-h-[90vh] flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-surface-border shrink-0">
-          <h2 className="text-base font-semibold text-white">{title}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#c9d4c5] shrink-0 bg-[#e8eee5]">
+          <h2 className="text-base font-semibold text-black">{title}</h2>
+          <button onClick={onClose} className="text-black/60 hover:text-black transition">
             <X size={18} />
           </button>
         </div>

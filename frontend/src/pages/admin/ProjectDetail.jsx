@@ -161,7 +161,7 @@ export default function ProjectDetail() {
 
   return (
     <AdminLayout>
-      <Link to="/admin/projects" className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-white mb-6 transition">
+      <Link to="/admin/projects" className="flex items-center gap-1.5 text-sm text-black/70 hover:text-black mb-6 transition">
         <ChevronLeft size={16} /> Back to Projects
       </Link>
 
@@ -169,40 +169,40 @@ export default function ProjectDetail() {
         <>
           <div className="flex items-start justify-between mb-8 gap-4 flex-wrap">
             <div>
-              <h1 className="text-2xl font-bold text-white mb-1">{project?.name}</h1>
-              <p className="text-slate-500 text-sm">{project?.description || "No description"}</p>
+              <h1 className="text-2xl font-bold text-primary-900 mb-1">{project?.name}</h1>
+              <p className="text-primary-500 text-sm">{project?.description || "No description"}</p>
             </div>
             <button onClick={openCreate} className="btn-primary flex items-center gap-2 shrink-0">
               <Plus size={16} /> Add Task
             </button>
           </div>
 
-          <div className="card p-0 overflow-hidden">
+          <div className="card p-0 overflow-hidden border border-[#c3cdc0] shadow-sm">
             {/* Mobile card list */}
-            <div className="sm:hidden divide-y divide-surface-border">
+            <div className="sm:hidden divide-y divide-[#d2dad0]">
               {tasks.map((t) => (
                 <div
                   key={t._id}
-                  className="p-4 space-y-2 cursor-pointer hover:bg-white/5 transition"
+                  className="p-4 space-y-2 cursor-pointer hover:bg-primary-50/70 transition"
                   onClick={() => openSubmission(t._id)}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-xs text-primary-400 bg-primary-500/10 px-2 py-0.5 rounded truncate">{t.taskId}</span>
+                    <span className="font-mono text-xs text-primary-700 bg-primary-100 px-2 py-0.5 rounded truncate">{t.taskId}</span>
                   </div>
-                  <p className="text-xs text-slate-300 bg-white/5 border border-surface-border px-2 py-0.5 rounded w-fit">{t.type}</p>
-                  <p className="text-xs text-slate-300 line-clamp-2">{t.text}</p>
+                  <p className="text-xs text-black/80 bg-white border border-[#d1d9ce] px-2 py-0.5 rounded w-fit">{t.type}</p>
+                  <p className="text-xs text-black/80 line-clamp-2">{t.text}</p>
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs text-slate-500 truncate">{t.prompt}</p>
+                    <p className="text-xs text-black/65 truncate">{t.prompt}</p>
                     <div className="flex gap-1 shrink-0">
                       <button
                         onClick={(e) => { e.stopPropagation(); openEdit(t); }}
-                        className="p-1.5 rounded hover:bg-white/10 text-slate-400 hover:text-white transition"
+                        className="p-1.5 rounded hover:bg-primary-100 text-black/60 hover:text-black transition"
                       >
                         <Pencil size={13} />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDelete(t._id); }}
-                        className="p-1.5 rounded hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition"
+                        className="p-1.5 rounded hover:bg-red-100 text-black/60 hover:text-red-700 transition"
                       >
                         <Trash2 size={13} />
                       </button>
@@ -211,7 +211,7 @@ export default function ProjectDetail() {
                 </div>
               ))}
               {!tasks.length && (
-                <div className="px-4 py-12 text-center text-slate-500">
+                <div className="px-4 py-12 text-center text-black/60">
                   <Mic2 size={32} className="mx-auto mb-2 opacity-30" />
                   No tasks yet. Add your first task.
                 </div>
@@ -221,46 +221,46 @@ export default function ProjectDetail() {
             {/* Desktop table */}
             <table className="hidden sm:table w-full text-sm table-fixed">
               <thead>
-                <tr className="border-b border-surface-border bg-white/5">
-                  <th className="text-left px-2 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-[12%]">Task ID</th>
-                  <th className="text-left px-2 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-[15%]">Type</th>
-                  <th className="text-left px-2 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-[25%]">Text</th>
-                  <th className="text-left px-2 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-[20%]">Prompt</th>
-                  <th className="text-left px-2 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-[8%]">Action</th>
+                <tr className="border-b border-[#d2dad0] bg-primary-50/70">
+                  <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[12%]">Task ID</th>
+                  <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[15%]">Type</th>
+                  <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[25%]">Text</th>
+                  <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[20%]">Prompt</th>
+                  <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[8%]">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {tasks.map((t) => (
                   <tr
                     key={t._id}
-                    className="border-b border-surface-border hover:bg-white/5 transition cursor-pointer"
+                    className="border-b border-[#d8e0d5] hover:bg-primary-50/60 transition cursor-pointer"
                     onClick={() => openSubmission(t._id)}
                     title="View task submission"
                   >
                     <td className="px-2 py-3.5 w-[12%]">
-                      <span className="font-mono text-xs text-primary-400 bg-primary-500/10 px-1.5 py-0.5 rounded block truncate">{t.taskId}</span>
+                      <span className="font-mono text-xs text-primary-700 bg-primary-100 px-1.5 py-0.5 rounded block truncate">{t.taskId}</span>
                     </td>
                     <td className="px-2 py-3.5 w-[15%]">
-                      <span className="text-xs text-slate-300 bg-white/5 border border-surface-border px-1.5 py-0.5 rounded block truncate">{t.type}</span>
+                      <span className="text-xs text-black/80 bg-white border border-[#d1d9ce] px-1.5 py-0.5 rounded block truncate">{t.type}</span>
                     </td>
                     <td className="px-2 py-3.5 w-[25%]">
-                      <div className="text-slate-300 text-xs truncate" title={t.text}>{t.text}</div>
+                      <div className="text-black/80 text-xs truncate" title={t.text}>{t.text}</div>
                     </td>
                     <td className="px-2 py-3.5 w-[20%]">
-                      <div className="text-slate-400 text-xs truncate" title={t.prompt}>{t.prompt}</div>
+                      <div className="text-black/65 text-xs truncate" title={t.prompt}>{t.prompt}</div>
                     </td>
                     <td className="px-1 py-3.5 w-[8%]">
                       <div className="flex gap-0.5">
                         <button
                           onClick={(e) => { e.stopPropagation(); openEdit(t); }}
-                          className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition"
+                          className="p-1 rounded hover:bg-primary-100 text-black/60 hover:text-black transition"
                           title="Edit"
                         >
                           <Pencil size={12} />
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDelete(t._id); }}
-                          className="p-1 rounded hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition"
+                          className="p-1 rounded hover:bg-red-100 text-black/60 hover:text-red-700 transition"
                           title="Delete"
                         >
                           <Trash2 size={12} />
@@ -271,7 +271,7 @@ export default function ProjectDetail() {
                 ))}
                 {!tasks.length && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
+                    <td colSpan={7} className="px-4 py-12 text-center text-black/60">
                       <Mic2 size={32} className="mx-auto mb-2 opacity-30" />
                       No tasks yet. Add your first task.
                     </td>
@@ -327,41 +327,41 @@ export default function ProjectDetail() {
           ) : selectedTask ? (
             <div className="max-h-[75vh] overflow-y-auto overflow-x-hidden scrollbar-hidden space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="rounded-2xl border border-surface-border bg-white/5 p-4">
+                <div className="rounded-2xl border border-[#c7d1c3] bg-[#eef2ec] p-4">
                   <p className="label mb-3">Project Details</p>
                   <div className="space-y-2 text-sm">
                     <div>
-                      <p className="text-slate-500 text-xs uppercase tracking-wide">Project Name</p>
-                      <p className="text-white mt-1">{project?.name || "Not available"}</p>
+                      <p className="text-black/55 text-xs uppercase tracking-wide">Project Name</p>
+                      <p className="text-black mt-1">{project?.name || "Not available"}</p>
                     </div>
                     <div>
-                      <p className="text-slate-500 text-xs uppercase tracking-wide">Description</p>
-                      <p className="text-slate-300 mt-1 whitespace-pre-wrap">{project?.description || "No description"}</p>
+                      <p className="text-black/55 text-xs uppercase tracking-wide">Description</p>
+                      <p className="text-black/80 mt-1 whitespace-pre-wrap">{project?.description || "No description"}</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-surface-border bg-white/5 p-4">
+                <div className="rounded-2xl border border-[#c7d1c3] bg-[#eef2ec] p-4">
                   <p className="label mb-3">Task Details</p>
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
-                      <p className="text-slate-500 text-xs uppercase tracking-wide">Task ID</p>
-                      <p className="text-white mt-1 font-mono">{selectedTask.taskId}</p>
+                      <p className="text-black/55 text-xs uppercase tracking-wide">Task ID</p>
+                      <p className="text-black mt-1 font-mono">{selectedTask.taskId}</p>
                     </div>
                     <div>
-                      <p className="text-slate-500 text-xs uppercase tracking-wide">Type</p>
-                      <p className="text-slate-300 mt-1">{selectedTask.type}</p>
+                      <p className="text-black/55 text-xs uppercase tracking-wide">Type</p>
+                      <p className="text-black/80 mt-1">{selectedTask.type}</p>
                     </div>
                     <div>
-                      <p className="text-slate-500 text-xs uppercase tracking-wide">Submission User</p>
-                      <p className="text-slate-300 mt-1">{selectedSubmission?.userId?.name || "No submission selected"}</p>
-                      {selectedSubmission?.userId?.email && <p className="text-slate-500 text-xs mt-0.5">{selectedSubmission.userId.email}</p>}
+                      <p className="text-black/55 text-xs uppercase tracking-wide">Submission User</p>
+                      <p className="text-black/80 mt-1">{selectedSubmission?.userId?.name || "No submission selected"}</p>
+                      {selectedSubmission?.userId?.email && <p className="text-black/55 text-xs mt-0.5">{selectedSubmission.userId.email}</p>}
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-surface-border bg-white/5 p-4">
+              <div className="rounded-2xl border border-[#c7d1c3] bg-[#eef2ec] p-4">
                 <p className="label mb-2">Submissions</p>
                 {taskSubmissions.length ? (
                   <select
@@ -380,31 +380,31 @@ export default function ProjectDetail() {
                     ))}
                   </select>
                 ) : (
-                  <p className="text-slate-400 text-sm">No submissions yet for this task.</p>
+                  <p className="text-black/60 text-sm">No submissions yet for this task.</p>
                 )}
               </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                <div className="rounded-2xl border border-surface-border bg-white/5 p-4">
-                  <div className="flex items-center gap-2 mb-3 text-slate-200">
+                <div className="rounded-2xl border border-[#c7d1c3] bg-[#eef2ec] p-4">
+                  <div className="flex items-center gap-2 mb-3 text-black/80">
                     <FileText size={16} className="text-primary-400" />
                     <p className="label m-0">Prompt</p>
                   </div>
-                  <p className="text-slate-300 whitespace-pre-wrap break-all text-sm leading-relaxed">{selectedTask.prompt || "No prompt provided."}</p>
+                  <p className="text-black/80 whitespace-pre-wrap break-all text-sm leading-relaxed">{selectedTask.prompt || "No prompt provided."}</p>
                 </div>
 
-                <div className="rounded-2xl border border-surface-border bg-gradient-to-br from-primary-900/30 to-surface-card p-4 border-primary-500/20 min-w-0">
-                  <div className="flex items-center gap-2 mb-3 text-slate-200">
+                <div className="rounded-2xl border border-[#c7d1c3] bg-[#e6eee2] p-4 min-w-0">
+                  <div className="flex items-center gap-2 mb-3 text-black/80">
                     <FileText size={16} className="text-primary-400" />
                     <p className="label m-0">Text To Read</p>
                   </div>
-                  <p className="text-white whitespace-pre-wrap break-all text-sm leading-relaxed">{selectedTask.text || "No text provided."}</p>
+                  <p className="text-black whitespace-pre-wrap break-all text-sm leading-relaxed">{selectedTask.text || "No text provided."}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                <div className="rounded-2xl border border-surface-border bg-white/5 p-4">
-                  <div className="flex items-center gap-2 mb-3 text-slate-200">
+                <div className="rounded-2xl border border-[#c7d1c3] bg-[#eef2ec] p-4">
+                  <div className="flex items-center gap-2 mb-3 text-black/80">
                     <FileAudio size={16} className="text-emerald-400" />
                     <p className="label m-0">Audio Submission</p>
                   </div>
@@ -414,40 +414,40 @@ export default function ProjectDetail() {
                       <audio controls src={submissionAudioUrl} className="w-full" />
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <div>
-                          <p className="text-slate-500 text-xs uppercase tracking-wide">Uploaded At</p>
-                          <p className="text-slate-300 mt-1">{formatDateTime(selectedSubmission?.audio?.uploadedAt)}</p>
+                          <p className="text-black/55 text-xs uppercase tracking-wide">Uploaded At</p>
+                          <p className="text-black/80 mt-1">{formatDateTime(selectedSubmission?.audio?.uploadedAt)}</p>
                         </div>
                         <div>
-                          <p className="text-slate-500 text-xs uppercase tracking-wide">File Size</p>
-                          <p className="text-slate-300 mt-1">{formatFileSize(selectedSubmission?.audio?.fileSizeBytes)}</p>
+                          <p className="text-black/55 text-xs uppercase tracking-wide">File Size</p>
+                          <p className="text-black/80 mt-1">{formatFileSize(selectedSubmission?.audio?.fileSizeBytes)}</p>
                         </div>
                         <div>
-                          <p className="text-slate-500 text-xs uppercase tracking-wide">Format</p>
-                          <p className="text-slate-300 mt-1">{selectedSubmission?.audio?.contentType || "audio/wav"}</p>
+                          <p className="text-black/55 text-xs uppercase tracking-wide">Format</p>
+                          <p className="text-black/80 mt-1">{selectedSubmission?.audio?.contentType || "audio/wav"}</p>
                         </div>
                         <div>
-                          <p className="text-slate-500 text-xs uppercase tracking-wide">Audio Spec</p>
-                          <p className="text-slate-300 mt-1">
+                          <p className="text-black/55 text-xs uppercase tracking-wide">Audio Spec</p>
+                          <p className="text-black/80 mt-1">
                             {selectedSubmission?.audio?.sampleRate || 16000} Hz · {selectedSubmission?.audio?.bitDepth || 16}-bit · {selectedSubmission?.audio?.channels || 1} ch
                           </p>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="rounded-xl border border-dashed border-surface-border bg-black/10 px-4 py-8 text-center">
-                      <Mic2 size={24} className="mx-auto mb-2 text-slate-600" />
-                      <p className="text-slate-400 text-sm">No audio submission available for this selection yet.</p>
+                    <div className="rounded-xl border border-dashed border-[#c5cec1] bg-white px-4 py-8 text-center">
+                      <Mic2 size={24} className="mx-auto mb-2 text-black/55" />
+                      <p className="text-black/60 text-sm">No audio submission available for this selection yet.</p>
                     </div>
                   )}
                 </div>
 
-                <div className="rounded-2xl border border-surface-border bg-white/5 p-4">
-                  <div className="flex items-center gap-2 mb-3 text-slate-200">
+                <div className="rounded-2xl border border-[#c7d1c3] bg-[#eef2ec] p-4">
+                  <div className="flex items-center gap-2 mb-3 text-black/80">
                     <FileText size={16} className="text-amber-400" />
                     <p className="label m-0">Transcript</p>
                   </div>
-                  <div className="rounded-xl bg-black/20 border border-surface-border p-4 min-h-[220px]">
-                    <p className="text-slate-300 whitespace-pre-wrap break-all text-sm leading-relaxed">
+                  <div className="rounded-xl bg-white border border-[#d0d9cd] p-4 min-h-[220px]">
+                    <p className="text-black/80 whitespace-pre-wrap break-all text-sm leading-relaxed">
                       {selectedSubmission?.transcript || "No transcript submitted yet."}
                     </p>
                   </div>
@@ -455,34 +455,34 @@ export default function ProjectDetail() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="rounded-2xl border border-surface-border bg-white/5 p-4">
-                  <div className="flex items-center gap-2 text-slate-200 mb-2">
+                <div className="rounded-2xl border border-[#c7d1c3] bg-[#eef2ec] p-4">
+                  <div className="flex items-center gap-2 text-black/80 mb-2">
                     <User2 size={15} className="text-sky-400" />
                     <p className="label m-0">Submission User</p>
                   </div>
-                  <p className="text-white text-sm">{selectedSubmission?.userId?.name || "No submission selected"}</p>
-                  <p className="text-slate-500 text-xs mt-1">{selectedSubmission?.userId?.email || "No user email available"}</p>
+                  <p className="text-black text-sm">{selectedSubmission?.userId?.name || "No submission selected"}</p>
+                  <p className="text-black/55 text-xs mt-1">{selectedSubmission?.userId?.email || "No user email available"}</p>
                 </div>
 
-                <div className="rounded-2xl border border-surface-border bg-white/5 p-4">
-                  <div className="flex items-center gap-2 text-slate-200 mb-2">
+                <div className="rounded-2xl border border-[#c7d1c3] bg-[#eef2ec] p-4">
+                  <div className="flex items-center gap-2 text-black/80 mb-2">
                     <CalendarClock size={15} className="text-primary-400" />
                     <p className="label m-0">Created</p>
                   </div>
-                  <p className="text-white text-sm">{formatDateTime(selectedTask.createdAt)}</p>
+                  <p className="text-black text-sm">{formatDateTime(selectedTask.createdAt)}</p>
                 </div>
 
-                <div className="rounded-2xl border border-surface-border bg-white/5 p-4">
-                  <div className="flex items-center gap-2 text-slate-200 mb-2">
+                <div className="rounded-2xl border border-[#c7d1c3] bg-[#eef2ec] p-4">
+                  <div className="flex items-center gap-2 text-black/80 mb-2">
                     <CalendarClock size={15} className="text-emerald-400" />
                     <p className="label m-0">Last Updated</p>
                   </div>
-                  <p className="text-white text-sm">{formatDateTime(selectedTask.updatedAt)}</p>
+                  <p className="text-black text-sm">{formatDateTime(selectedTask.updatedAt)}</p>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="py-12 text-center text-slate-400 text-sm">Task submission details are not available.</div>
+            <div className="py-12 text-center text-black/55 text-sm">Task submission details are not available.</div>
           )}
         </Modal>
       )}
