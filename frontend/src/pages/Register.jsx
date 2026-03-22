@@ -38,8 +38,8 @@ export default function Register() {
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary-600 mb-4">
             <Mic2 size={28} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white">Create Account</h1>
-          <p className="text-slate-400 text-sm mt-1">Register to get started</p>
+          <h1 className="text-2xl font-bold text-primary-900">Create Account</h1>
+          <p className="text-primary-500 text-sm mt-1">Register to get started</p>
         </div>
 
         <div className="card">

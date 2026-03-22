@@ -115,7 +115,7 @@ export default function ProjectDetail() {
       if (!cleanForm.assignedTo || cleanForm.assignedTo === "") {
         delete cleanForm.assignedTo;
       }
-      
+
       if (editing) { await updateTask(editing._id, cleanForm); toast.success("Task updated!"); }
       else { await createTask(id, cleanForm); toast.success("Task created!"); }
       setModal(null); fetchProject();
@@ -288,8 +288,7 @@ export default function ProjectDetail() {
               </select>
             </div>
             <div className="flex gap-3 justify-end pt-2">
-              <button type="button" onClick={() => setModal(null)} className="btn-secondary">Cancel</button>
-              <button type="submit" disabled={saving} className="btn-primary">
+              <button type="submit" disabled={saving} className="btn-secondary">
                 {saving ? "Saving…" : editing ? "Update Task" : "Create Task"}
               </button>
             </div>

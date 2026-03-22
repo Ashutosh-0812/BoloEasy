@@ -5,10 +5,18 @@
 
 @layer base {
   body {
-    @apply bg-surface text-primary-900 font-sans antialiased;
+    @apply bg-surface text-black font-sans antialiased;
   }
   * {
     @apply border-surface-border;
+  }
+  /* Force all textual content to black across the app. */
+  * {
+    color: #000 !important;
+  }
+  *::placeholder {
+    color: #000 !important;
+    opacity: 1;
   }
 }
 
@@ -48,7 +56,7 @@
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700;
   }
   .badge-progress {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700;
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-lime-100 text-lime-700;
   }
   .badge-done {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700;

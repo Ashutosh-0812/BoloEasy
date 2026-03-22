@@ -35,8 +35,8 @@ export default function App() {
         <Toaster
           position="top-right"
           toastOptions={{
-            style: { background: "#1e293b", color: "#f1f5f9", border: "1px solid #334155" },
-            success: { iconTheme: { primary: "#10b981", secondary: "#f1f5f9" } },
+            style: { background: "#12340c", color: "#f3f8f1", border: "1px solid #2f7a22" },
+            success: { iconTheme: { primary: "#2f7a22", secondary: "#f3f8f1" } },
             error: { iconTheme: { primary: "#ef4444", secondary: "#f1f5f9" } },
           }}
         />

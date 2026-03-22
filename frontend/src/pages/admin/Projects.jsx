@@ -76,30 +76,37 @@ export default function AdminProjects() {
       {loading ? <PageSpinner /> : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {projects.map((p) => (
-            <div key={p._id} className="bg-primary-600 rounded-xl p-6 shadow-md hover:bg-primary-700 transition group cursor-pointer border border-primary-500"
+            <div key={p._id} className="bg-[#e3e7e3] rounded-2xl p-4 shadow-sm hover:bg-[#dce1dc] transition group cursor-pointer border border-[#b9c1b8]"
               onClick={() => navigate(`/admin/projects/${p._id}`)}>
               <div className="flex items-start justify-between mb-4">
-                <div className="w-10 h-10 rounded-lg bg-white/15 flex items-center justify-center">
-                  <FolderOpen size={18} className="text-white" />
+                <div className="w-10 h-10 rounded-lg bg-black/5 flex items-center justify-center">
+                  <FolderOpen size={18} className="text-black/80" />
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                  <button className="p-1.5 rounded-lg hover:bg-white/20 text-white/60 hover:text-white"
+                  <button className="p-1.5 rounded-lg hover:bg-black/10 text-black/60 hover:text-black"
                     onClick={(e) => { e.stopPropagation(); openEdit(p); }}>
                     <Pencil size={14} />
                   </button>
-                  <button className="p-1.5 rounded-lg hover:bg-red-500/30 text-white/60 hover:text-red-300"
+                  <button className="p-1.5 rounded-lg hover:bg-red-100 text-black/60 hover:text-red-700"
                     onClick={(e) => { e.stopPropagation(); handleDelete(p._id); }}>
                     <Trash2 size={14} />
                   </button>
                 </div>
               </div>
-              <h3 className="font-semibold text-white mb-1">{p.name}</h3>
-              <p className="text-sm text-white/60 mb-4 line-clamp-2">{p.description || "No description"}</p>
-              <div className="flex items-center justify-between text-xs text-white/50">
+              <h3 className="font-semibold text-black mb-1">{p.name}</h3>
+              <p className="text-sm text-black/70 mb-4 line-clamp-2">{p.description || "No description"}</p>
+              <div className="flex items-center justify-between text-xs text-black/75">
                 <span>{p.tasks?.length ?? 0} tasks</span>
-                <span className="flex items-center gap-0.5 text-white font-medium">
-                  View <ChevronRight size={13} />
-                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/admin/projects/${p._id}`);
+                  }}
+                  className="px-4 py-1.5 rounded-xl bg-primary-700 hover:bg-primary-800 !text-white text-xs font-semibold transition inline-flex items-center gap-1"
+                >
+                  Open <ChevronRight size={13} />
+                </button>
               </div>
             </div>
           ))}
@@ -126,8 +133,7 @@ export default function AdminProjects() {
                 className="input resize-none" rows={3} placeholder="Optional description…" />
             </div>
             <div className="flex gap-3 justify-end pt-2">
-              <button type="button" onClick={() => setModal(null)} className="btn-secondary">Cancel</button>
-              <button type="submit" disabled={saving} className="btn-primary">
+              <button type="submit" disabled={saving} className="btn-secondary">
                 {saving ? "Saving…" : editing ? "Update" : "Create"}
               </button>
             </div>

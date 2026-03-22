@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import UserLayout from "../../components/layout/UserLayout";
 import { getMyTasks } from "../../api/user.api";
-import { ClipboardList, ChevronRight, Mic2 } from "lucide-react";
+import { ClipboardList, Mic2 } from "lucide-react";
 import { PageSpinner } from "../../components/ui/Spinner";
 import toast from "react-hot-toast";
 
@@ -42,26 +42,33 @@ export default function UserDashboard() {
               {tasks.map((t) => (
                 <div key={t._id}
                   onClick={() => navigate(`/user/tasks/${t._id}`)}
-                  className="bg-primary-600 rounded-xl p-6 shadow-md border border-primary-500 cursor-pointer hover:bg-primary-700 transition group">
-                  <div className="flex items-start justify-between mb-3">
-                    <span className="font-mono text-xs text-white/70 bg-white/15 px-2 py-0.5 rounded">
+                  className="bg-[#e3e7e3] rounded-2xl p-4 shadow-sm border border-[#b9c1b8] cursor-pointer hover:bg-[#dce1dc] transition group">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <span className="font-mono text-xs text-black/70 bg-black/5 px-2 py-0.5 rounded">
                       {t.taskId}
                     </span>
                     {statusBadge(t.status)}
                   </div>
-                  <p className="text-xs text-white/50 uppercase tracking-wide font-semibold mb-2">{t.type}</p>
-                  <p className="text-sm text-white/80 mb-3 line-clamp-3">{t.text}</p>
+                  <p className="text-base font-semibold text-black mb-1 line-clamp-1">{t.type}</p>
+                  <p className="text-sm text-black/80 mb-3 line-clamp-2">{t.text}</p>
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs text-white/50">
+                    <div className="flex items-center gap-2 text-xs text-black/75">
                       {(t.audio?.publicId || t.audio?.url)
-                        ? <span className="text-emerald-300 font-medium flex items-center gap-1">
+                        ? <span className="text-black font-medium flex items-center gap-1">
                             <Mic2 size={11} /> Audio recorded
                           </span>
-                        : <span>No audio yet</span>}
+                        : <span>Audio pending</span>}
                     </div>
-                    <span className="text-white/60 group-hover:text-white transition">
-                      <ChevronRight size={16} />
-                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/user/tasks/${t._id}`);
+                      }}
+                      className="px-4 py-1.5 rounded-xl bg-primary-700 hover:bg-primary-800 !text-white text-xs font-semibold transition"
+                    >
+                      Continue
+                    </button>
                   </div>
                 </div>
               ))}
