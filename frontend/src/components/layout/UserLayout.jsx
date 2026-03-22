@@ -4,7 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { LayoutDashboard, LogOut, Mic2, Menu } from "lucide-react";
 
 const NAV = [
-  { to: "/user", label: "My Tasks", icon: LayoutDashboard, end: true },
+  { to: "/user", label: "My Projects", icon: LayoutDashboard, end: true },
 ];
 
 function SidebarContent({ user, onLogout, onNavClick }) {
@@ -62,7 +62,7 @@ export default function UserLayout({ children }) {
 
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-30 w-64 bg-surface-card border-r border-surface-border flex flex-col
+        sidebar-surface fixed inset-y-0 left-0 z-30 w-64 bg-surface-card border-r border-surface-border flex flex-col
         transform transition-transform duration-200 ease-in-out
         ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
         md:relative md:translate-x-0 md:flex

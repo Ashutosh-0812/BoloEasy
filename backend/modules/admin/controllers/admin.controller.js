@@ -36,6 +36,17 @@ const verifyUser = async (req, res, next) => {
   }
 };
 
+const assignProjectToUser = async (req, res, next) => {
+  try {
+    logger.info(`Admin ${req.user.id} assigning project ${req.params.projectId} to user ${req.params.userId}`);
+    const result = await svc.assignProjectToUser(req.params.projectId, req.params.userId, req.user.id);
+    return successResponse(res, "Project assigned successfully.", result);
+  } catch (err) {
+    if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
+    next(err);
+  }
+};
+
 // ─── Projects ─────────────────────────────────────────────────────────────────
 const createProject = async (req, res, next) => {
   try {
@@ -151,10 +162,42 @@ const streamTaskAudio = async (req, res, next) => {
   }
 };
 
+const getTaskSubmissions = async (req, res, next) => {
+  try {
+    const submissions = await svc.getTaskSubmissions(req.params.id);
+    return successResponse(res, "Task submissions retrieved.", submissions);
+  } catch (err) {
+    if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
+    next(err);
+  }
+};
+
+const streamSubmissionAudio = async (req, res, next) => {
+  try {
+    const submission = await svc.getTaskSubmissionById(req.params.id);
+    if (!submission.audio || !submission.audio.url) {
+      return errorResponse(res, "No audio found for this submission.", 404);
+    }
+
+    const { getAudioStream } = require("../../../services/cloudinary.service");
+    const stream = await getAudioStream(submission.audio.url);
+
+    res.setHeader("Content-Type", submission.audio.contentType || "audio/wav");
+    res.setHeader("Content-Disposition", `attachment; filename="submission-${submission._id}.wav"`);
+    stream.pipe(res);
+  } catch (err) {
+    if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
+    next(err);
+  }
+};
+
 module.exports = {
   getDashboard,
   getAllUsers, getPendingUsers, verifyUser,
+  assignProjectToUser,
   createProject, getAllProjects, getProjectById, updateProject, deleteProject,
   createTask, getTasksByProject, getTaskById, updateTask, deleteTask,
   streamTaskAudio,
+  getTaskSubmissions,
+  streamSubmissionAudio,
 };

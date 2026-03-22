@@ -21,6 +21,11 @@ router.get("/dashboard", ctrl.getDashboard);
 router.get("/users", ctrl.getAllUsers);
 router.get("/users/pending", ctrl.getPendingUsers);
 router.patch("/users/:id/verify", [validateObjectId("id"), validate], ctrl.verifyUser);
+router.patch(
+  "/projects/:projectId/assign/:userId",
+  [validateObjectId("projectId"), validateObjectId("userId"), validate],
+  ctrl.assignProjectToUser
+);
 
 // ─── Projects ─────────────────────────────────────────────────────────────────
 router.post("/projects", createProjectValidator, validate, ctrl.createProject);
@@ -38,5 +43,7 @@ router.delete("/tasks/:id", [validateObjectId("id"), validate], ctrl.deleteTask)
 
 // ─── Admin view user submissions ─────────────────────────────────────────────
 router.get("/tasks/:id/audio", [validateObjectId("id"), validate], ctrl.streamTaskAudio);
+router.get("/tasks/:id/submissions", [validateObjectId("id"), validate], ctrl.getTaskSubmissions);
+router.get("/submissions/:id/audio", [validateObjectId("id"), validate], ctrl.streamSubmissionAudio);
 
 module.exports = router;

@@ -207,7 +207,10 @@ export default function TaskDetail() {
 
   return (
     <UserLayout>
-      <Link to="/user" className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-white mb-6 transition">
+      <Link
+        to={task?.projectId ? `/user/projects/${task.projectId}` : "/user"}
+        className="flex items-center gap-1.5 text-sm text-black/70 hover:text-black mb-6 transition"
+      >
         <ChevronLeft size={16} /> Back to Tasks
       </Link>
 

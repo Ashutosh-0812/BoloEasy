@@ -1,14 +1,25 @@
 import { useEffect, useState } from "react";
 import AdminLayout from "../../components/layout/AdminLayout";
-import { getAllUsers, verifyUser } from "../../api/admin.api";
-import { CheckCircle, Clock, ShieldCheck } from "lucide-react";
+import Modal from "../../components/ui/Modal";
+import {
+  getAllUsers,
+  verifyUser,
+  getAllProjects,
+  assignProjectToUser,
+} from "../../api/admin.api";
+import { CheckCircle, Clock, ShieldCheck, FolderUp } from "lucide-react";
 import { PageSpinner } from "../../components/ui/Spinner";
 import toast from "react-hot-toast";
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingProjects, setLoadingProjects] = useState(false);
   const [verifying, setVerifying] = useState(null);
+  const [assigning, setAssigning] = useState(false);
+  const [assignModalUser, setAssignModalUser] = useState(null);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
 
   const fetchUsers = () => {
     setLoading(true);
@@ -19,6 +30,18 @@ export default function AdminUsers() {
   };
 
   useEffect(() => { fetchUsers(); }, []);
+
+  const fetchProjects = async () => {
+    setLoadingProjects(true);
+    try {
+      const res = await getAllProjects();
+      setProjects(res.data.data || []);
+    } catch {
+      toast.error("Failed to load projects");
+    } finally {
+      setLoadingProjects(false);
+    }
+  };
 
   const handleVerify = async (id) => {
     setVerifying(id);
@@ -31,6 +54,62 @@ export default function AdminUsers() {
     } finally {
       setVerifying(null);
     }
+  };
+
+  const openAssignModal = async (user) => {
+    setAssignModalUser(user);
+    setSelectedProjectId("");
+    if (!projects.length) {
+      await fetchProjects();
+    }
+  };
+
+  const closeAssignModal = () => {
+    setAssignModalUser(null);
+    setSelectedProjectId("");
+  };
+
+  const handleAssign = async (e) => {
+    e.preventDefault();
+    if (!assignModalUser?._id || !selectedProjectId) {
+      toast.error("Please select a project");
+      return;
+    }
+
+    setAssigning(true);
+    try {
+      await assignProjectToUser(selectedProjectId, assignModalUser._id);
+      toast.success(`Project assigned to ${assignModalUser.name}`);
+      closeAssignModal();
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Project assignment failed");
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const renderActionButton = (u) => {
+    if (u.role !== "user") return null;
+
+    if (!u.isVerified) {
+      return (
+        <button onClick={() => handleVerify(u._id)} disabled={verifying === u._id}
+          className="btn-primary flex items-center gap-1.5 py-1.5 px-3 text-xs">
+          <ShieldCheck size={13} />
+          {verifying === u._id ? "Verifying…" : "Verify"}
+        </button>
+      );
+    }
+
+    return (
+      <button
+        onClick={() => openAssignModal(u)}
+        className="btn-secondary flex items-center gap-1.5 py-1.5 px-3 text-xs"
+      >
+        <FolderUp size={13} /> Assign
+      </button>
+    );
   };
 
   return (
@@ -58,13 +137,7 @@ export default function AdminUsers() {
                       : <span className="badge-pending flex items-center gap-1"><Clock size={12} /> Pending</span>}
                     <span className="text-xs text-primary-400">{new Date(u.createdAt).toLocaleDateString()}</span>
                   </div>
-                  {!u.isVerified && (
-                    <button onClick={() => handleVerify(u._id)} disabled={verifying === u._id}
-                      className="btn-primary flex items-center gap-1.5 py-1.5 px-3 text-xs">
-                      <ShieldCheck size={13} />
-                      {verifying === u._id ? "Verifying…" : "Verify"}
-                    </button>
-                  )}
+                  {renderActionButton(u)}
                 </div>
               </div>
             ))}
@@ -97,13 +170,7 @@ export default function AdminUsers() {
                   </td>
                   <td className="px-5 py-4 text-primary-400">{new Date(u.createdAt).toLocaleDateString()}</td>
                   <td className="px-5 py-4">
-                    {!u.isVerified && (
-                      <button onClick={() => handleVerify(u._id)} disabled={verifying === u._id}
-                        className="btn-primary flex items-center gap-1.5 py-1.5 px-3 text-xs">
-                        <ShieldCheck size={13} />
-                        {verifying === u._id ? "Verifying…" : "Verify"}
-                      </button>
-                    )}
+                    {renderActionButton(u)}
                   </td>
                 </tr>
               ))}
@@ -113,6 +180,47 @@ export default function AdminUsers() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {assignModalUser && (
+        <Modal title="Assign Project" onClose={closeAssignModal} size="sm">
+          <form onSubmit={handleAssign} className="space-y-4">
+            <div>
+              <p className="text-sm text-primary-500 mb-2">
+                Assign a project to <span className="font-semibold text-primary-900">{assignModalUser.name}</span>
+              </p>
+              <label className="label">Project</label>
+              <select
+                value={selectedProjectId}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
+                className="input"
+                disabled={loadingProjects || assigning}
+                required
+              >
+                <option value="">Select project</option>
+                {projects.map((p) => (
+                  <option key={p._id} value={p._id}>{p.name}</option>
+                ))}
+              </select>
+              {!loadingProjects && projects.length === 0 && (
+                <p className="text-xs text-amber-600 mt-1">No projects found. Create a project first.</p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={closeAssignModal} className="btn-secondary" disabled={assigning}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={assigning || loadingProjects || projects.length === 0}
+              >
+                {assigning ? "Assigning..." : "Assign"}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
     </AdminLayout>
   );

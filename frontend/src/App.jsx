@@ -9,6 +9,7 @@ import AdminUsers from "./pages/admin/Users";
 import AdminProjects from "./pages/admin/Projects";
 import ProjectDetail from "./pages/admin/ProjectDetail";
 import UserDashboard from "./pages/user/Dashboard";
+import UserProjectTasks from "./pages/user/ProjectTasks";
 import TaskDetail from "./pages/user/TaskDetail";
 
 // ─── Protected Route Guards ───────────────────────────────────────────────────
@@ -35,6 +36,7 @@ export default function App() {
         <Toaster
           position="top-right"
           toastOptions={{
+            className: "app-toast",
             style: { background: "#12340c", color: "#f3f8f1", border: "1px solid #2f7a22" },
             success: { iconTheme: { primary: "#2f7a22", secondary: "#f3f8f1" } },
             error: { iconTheme: { primary: "#ef4444", secondary: "#f1f5f9" } },
@@ -53,6 +55,7 @@ export default function App() {
 
           {/* User */}
           <Route path="/user" element={<RequireAuth role="user"><UserDashboard /></RequireAuth>} />
+          <Route path="/user/projects/:id" element={<RequireAuth role="user"><UserProjectTasks /></RequireAuth>} />
           <Route path="/user/tasks/:id" element={<RequireAuth role="user"><TaskDetail /></RequireAuth>} />
 
           {/* Root redirect */}

@@ -13,6 +13,12 @@ router.use(authenticate, requireRole("user"));
 // GET /api/user/tasks
 router.get("/tasks", ctrl.getMyTasks);
 
+// GET /api/user/projects
+router.get("/projects", ctrl.getMyProjects);
+
+// GET /api/user/projects/:id/tasks
+router.get("/projects/:id/tasks", [validateObjectId("id"), validate], ctrl.getProjectTasks);
+
 // GET /api/user/tasks/:id
 router.get("/tasks/:id", [validateObjectId("id"), validate], ctrl.getTaskDetail);
 

@@ -19,6 +19,68 @@ const verifyUser = async (userId) => {
   return user;
 };
 
+const assignProjectToUser = async (projectId, userId, adminId) => {
+  const [project, user] = await Promise.all([
+    dao.getProjectById(projectId),
+    dao.getUserById(userId),
+  ]);
+
+  if (!project) {
+    const err = new Error("Project not found.");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (!user) {
+    const err = new Error("User not found.");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (user.role !== "user") {
+    const err = new Error("Project can only be assigned to users with role 'user'.");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (!user.isVerified) {
+    const err = new Error("User must be verified before project assignment.");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  await dao.assignProjectToUser(projectId, userId, adminId);
+  logger.info(`Project ${projectId} assigned to user ${userId} by admin ${adminId}.`);
+
+  return {
+    projectId,
+    userId,
+    assignment: "created-or-updated",
+  };
+};
+
+const getTaskSubmissions = async (taskId) => {
+  const task = await dao.getTaskById(taskId);
+  if (!task) {
+    const err = new Error("Task not found.");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  return dao.getTaskSubmissions(taskId);
+};
+
+const getTaskSubmissionById = async (submissionId) => {
+  const submission = await dao.getTaskSubmissionById(submissionId);
+  if (!submission) {
+    const err = new Error("Submission not found.");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  return submission;
+};
+
 // ─── Projects ─────────────────────────────────────────────────────────────────
 const createProject = async ({ name, description, adminId }) => {
   const project = await dao.createProject({ name, description, createdBy: adminId });
@@ -123,6 +185,9 @@ const deleteTask = async (id) => {
 module.exports = {
   getDashboard,
   getAllUsers, getPendingUsers, verifyUser,
+  assignProjectToUser,
+  getTaskSubmissions,
+  getTaskSubmissionById,
   createProject, getAllProjects, getProjectById, updateProject, deleteProject,
   createTask, getTasksByProject, getTaskById, updateTask, deleteTask,
 };

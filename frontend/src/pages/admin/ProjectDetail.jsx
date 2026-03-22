@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import AdminLayout from "../../components/layout/AdminLayout";
 import Modal from "../../components/ui/Modal";
 import {
-  getProjectById, createTask, updateTask, deleteTask, getAllUsers, getTaskById, streamTaskAudio
+  getProjectById, createTask, updateTask, deleteTask, getAllUsers, getTaskById, getTaskSubmissions, streamSubmissionAudio
 } from "../../api/admin.api";
 import { Plus, Trash2, Pencil, ChevronLeft, Mic2, FileAudio, FileText, User2, CalendarClock } from "lucide-react";
 import { PageSpinner, Spinner } from "../../components/ui/Spinner";
@@ -11,12 +11,6 @@ import toast from "react-hot-toast";
 
 const TASK_TYPES = ["name entity-read", "name entity-variable", "name entity-sentence"];
 const EMPTY_TASK = { type: TASK_TYPES[0], text: "", prompt: "", assignedTo: "" };
-
-const statusBadge = (s) => {
-  if (s === "completed") return <span className="badge-done">Completed</span>;
-  if (s === "in-progress") return <span className="badge-progress">In Progress</span>;
-  return <span className="badge-pending">Pending</span>;
-};
 
 const formatDateTime = (value) => {
   if (!value) return "Not available";
@@ -39,6 +33,8 @@ export default function ProjectDetail() {
   const [form, setForm] = useState(EMPTY_TASK);
   const [saving, setSaving] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [taskSubmissions, setTaskSubmissions] = useState([]);
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState("");
   const [submissionLoading, setSubmissionLoading] = useState(false);
   const [submissionAudioUrl, setSubmissionAudioUrl] = useState(null);
 
@@ -69,9 +65,30 @@ export default function ProjectDetail() {
   const closeSubmissionModal = () => {
     setModal(null);
     setSelectedTask(null);
+    setTaskSubmissions([]);
+    setSelectedSubmissionId("");
     if (submissionAudioUrl) {
       URL.revokeObjectURL(submissionAudioUrl);
       setSubmissionAudioUrl(null);
+    }
+  };
+
+  const loadSubmissionAudio = async (submissionId) => {
+    if (submissionAudioUrl) {
+      URL.revokeObjectURL(submissionAudioUrl);
+      setSubmissionAudioUrl(null);
+    }
+
+    if (!submissionId) return;
+    const selected = taskSubmissions.find((s) => s._id === submissionId);
+    if (!selected?.audio?.url && !selected?.audio?.publicId) return;
+
+    try {
+      const audioResponse = await streamSubmissionAudio(submissionId);
+      const audioBlobUrl = URL.createObjectURL(audioResponse.data);
+      setSubmissionAudioUrl(audioBlobUrl);
+    } catch {
+      toast.error("Submission loaded, but audio could not be played.");
     }
   };
 
@@ -79,6 +96,8 @@ export default function ProjectDetail() {
     setModal("submission");
     setSubmissionLoading(true);
     setSelectedTask(null);
+    setTaskSubmissions([]);
+    setSelectedSubmissionId("");
 
     if (submissionAudioUrl) {
       URL.revokeObjectURL(submissionAudioUrl);
@@ -86,17 +105,23 @@ export default function ProjectDetail() {
     }
 
     try {
-      const taskResponse = await getTaskById(taskId);
+      const [taskResponse, submissionsResponse] = await Promise.all([
+        getTaskById(taskId),
+        getTaskSubmissions(taskId),
+      ]);
       const taskData = taskResponse.data.data;
+      const submissions = submissionsResponse.data.data || [];
       setSelectedTask(taskData);
+      setTaskSubmissions(submissions);
 
-      if (taskData.audio?.publicId || taskData.audio?.url) {
-        try {
-          const audioResponse = await streamTaskAudio(taskId);
+      if (submissions.length) {
+        const firstSubmissionId = submissions[0]._id;
+        setSelectedSubmissionId(firstSubmissionId);
+        const firstSubmission = submissions[0];
+        if (firstSubmission.audio?.publicId || firstSubmission.audio?.url) {
+          const audioResponse = await streamSubmissionAudio(firstSubmissionId);
           const audioBlobUrl = URL.createObjectURL(audioResponse.data);
           setSubmissionAudioUrl(audioBlobUrl);
-        } catch {
-          toast.error("Task details loaded, but audio could not be played.");
         }
       }
     } catch (err) {
@@ -106,6 +131,8 @@ export default function ProjectDetail() {
       setSubmissionLoading(false);
     }
   };
+
+  const selectedSubmission = taskSubmissions.find((s) => s._id === selectedSubmissionId) || null;
 
   const handleSave = async (e) => {
     e.preventDefault(); setSaving(true);
@@ -161,7 +188,6 @@ export default function ProjectDetail() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-xs text-primary-400 bg-primary-500/10 px-2 py-0.5 rounded truncate">{t.taskId}</span>
-                    {statusBadge(t.status)}
                   </div>
                   <p className="text-xs text-slate-300 bg-white/5 border border-surface-border px-2 py-0.5 rounded w-fit">{t.type}</p>
                   <p className="text-xs text-slate-300 line-clamp-2">{t.text}</p>
@@ -200,8 +226,7 @@ export default function ProjectDetail() {
                   <th className="text-left px-2 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-[15%]">Type</th>
                   <th className="text-left px-2 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-[25%]">Text</th>
                   <th className="text-left px-2 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-[20%]">Prompt</th>
-                  <th className="text-left px-2 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-[10%]">Status</th>
-                  <th className="text-left px-2 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-[6%]">Action</th>
+                  <th className="text-left px-2 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide w-[8%]">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -224,10 +249,7 @@ export default function ProjectDetail() {
                     <td className="px-2 py-3.5 w-[20%]">
                       <div className="text-slate-400 text-xs truncate" title={t.prompt}>{t.prompt}</div>
                     </td>
-                    <td className="px-2 py-3.5 w-[10%]">
-                      {statusBadge(t.status)}
-                    </td>
-                    <td className="px-1 py-3.5 w-[6%]">
+                    <td className="px-1 py-3.5 w-[8%]">
                       <div className="flex gap-0.5">
                         <button
                           onClick={(e) => { e.stopPropagation(); openEdit(t); }}
@@ -327,20 +349,39 @@ export default function ProjectDetail() {
                       <p className="text-white mt-1 font-mono">{selectedTask.taskId}</p>
                     </div>
                     <div>
-                      <p className="text-slate-500 text-xs uppercase tracking-wide">Status</p>
-                      <div className="mt-1">{statusBadge(selectedTask.status)}</div>
-                    </div>
-                    <div>
                       <p className="text-slate-500 text-xs uppercase tracking-wide">Type</p>
                       <p className="text-slate-300 mt-1">{selectedTask.type}</p>
                     </div>
                     <div>
-                      <p className="text-slate-500 text-xs uppercase tracking-wide">Assigned User</p>
-                      <p className="text-slate-300 mt-1">{selectedTask.assignedTo?.name || "Unassigned"}</p>
-                      {selectedTask.assignedTo?.email && <p className="text-slate-500 text-xs mt-0.5">{selectedTask.assignedTo.email}</p>}
+                      <p className="text-slate-500 text-xs uppercase tracking-wide">Submission User</p>
+                      <p className="text-slate-300 mt-1">{selectedSubmission?.userId?.name || "No submission selected"}</p>
+                      {selectedSubmission?.userId?.email && <p className="text-slate-500 text-xs mt-0.5">{selectedSubmission.userId.email}</p>}
                     </div>
                   </div>
                 </div>
+              </div>
+
+              <div className="rounded-2xl border border-surface-border bg-white/5 p-4">
+                <p className="label mb-2">Submissions</p>
+                {taskSubmissions.length ? (
+                  <select
+                    className="input"
+                    value={selectedSubmissionId}
+                    onChange={async (e) => {
+                      const nextId = e.target.value;
+                      setSelectedSubmissionId(nextId);
+                      await loadSubmissionAudio(nextId);
+                    }}
+                  >
+                    {taskSubmissions.map((s) => (
+                      <option key={s._id} value={s._id}>
+                        {s.userId?.name || "Unknown user"} ({s.userId?.email || "no-email"})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-slate-400 text-sm">No submissions yet for this task.</p>
+                )}
               </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -374,20 +415,20 @@ export default function ProjectDetail() {
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <div>
                           <p className="text-slate-500 text-xs uppercase tracking-wide">Uploaded At</p>
-                          <p className="text-slate-300 mt-1">{formatDateTime(selectedTask.audio?.uploadedAt)}</p>
+                          <p className="text-slate-300 mt-1">{formatDateTime(selectedSubmission?.audio?.uploadedAt)}</p>
                         </div>
                         <div>
                           <p className="text-slate-500 text-xs uppercase tracking-wide">File Size</p>
-                          <p className="text-slate-300 mt-1">{formatFileSize(selectedTask.audio?.fileSizeBytes)}</p>
+                          <p className="text-slate-300 mt-1">{formatFileSize(selectedSubmission?.audio?.fileSizeBytes)}</p>
                         </div>
                         <div>
                           <p className="text-slate-500 text-xs uppercase tracking-wide">Format</p>
-                          <p className="text-slate-300 mt-1">{selectedTask.audio?.contentType || "audio/wav"}</p>
+                          <p className="text-slate-300 mt-1">{selectedSubmission?.audio?.contentType || "audio/wav"}</p>
                         </div>
                         <div>
                           <p className="text-slate-500 text-xs uppercase tracking-wide">Audio Spec</p>
                           <p className="text-slate-300 mt-1">
-                            {selectedTask.audio?.sampleRate || 16000} Hz · {selectedTask.audio?.bitDepth || 16}-bit · {selectedTask.audio?.channels || 1} ch
+                            {selectedSubmission?.audio?.sampleRate || 16000} Hz · {selectedSubmission?.audio?.bitDepth || 16}-bit · {selectedSubmission?.audio?.channels || 1} ch
                           </p>
                         </div>
                       </div>
@@ -395,7 +436,7 @@ export default function ProjectDetail() {
                   ) : (
                     <div className="rounded-xl border border-dashed border-surface-border bg-black/10 px-4 py-8 text-center">
                       <Mic2 size={24} className="mx-auto mb-2 text-slate-600" />
-                      <p className="text-slate-400 text-sm">No audio submission available for this task yet.</p>
+                      <p className="text-slate-400 text-sm">No audio submission available for this selection yet.</p>
                     </div>
                   )}
                 </div>
@@ -407,7 +448,7 @@ export default function ProjectDetail() {
                   </div>
                   <div className="rounded-xl bg-black/20 border border-surface-border p-4 min-h-[220px]">
                     <p className="text-slate-300 whitespace-pre-wrap break-all text-sm leading-relaxed">
-                      {selectedTask.transcript || "No transcript submitted yet."}
+                      {selectedSubmission?.transcript || "No transcript submitted yet."}
                     </p>
                   </div>
                 </div>
@@ -417,10 +458,10 @@ export default function ProjectDetail() {
                 <div className="rounded-2xl border border-surface-border bg-white/5 p-4">
                   <div className="flex items-center gap-2 text-slate-200 mb-2">
                     <User2 size={15} className="text-sky-400" />
-                    <p className="label m-0">Assigned User</p>
+                    <p className="label m-0">Submission User</p>
                   </div>
-                  <p className="text-white text-sm">{selectedTask.assignedTo?.name || "Unassigned"}</p>
-                  <p className="text-slate-500 text-xs mt-1">{selectedTask.assignedTo?.email || "No user email available"}</p>
+                  <p className="text-white text-sm">{selectedSubmission?.userId?.name || "No submission selected"}</p>
+                  <p className="text-slate-500 text-xs mt-1">{selectedSubmission?.userId?.email || "No user email available"}</p>
                 </div>
 
                 <div className="rounded-2xl border border-surface-border bg-white/5 p-4">

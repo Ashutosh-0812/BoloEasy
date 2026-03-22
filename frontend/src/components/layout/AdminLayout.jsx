@@ -69,7 +69,7 @@ export default function AdminLayout({ children }) {
 
       {/* Sidebar — hidden on mobile, visible on md+ */}
       <aside className={`
-        fixed inset-y-0 left-0 z-30 w-64 bg-surface-card border-r border-surface-border flex flex-col
+        sidebar-surface fixed inset-y-0 left-0 z-30 w-64 bg-surface-card border-r border-surface-border flex flex-col
         transform transition-transform duration-200 ease-in-out
         ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
         md:relative md:translate-x-0 md:flex

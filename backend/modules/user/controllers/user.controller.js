@@ -10,6 +10,23 @@ const getMyTasks = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const getMyProjects = async (req, res, next) => {
+  try {
+    const projects = await userSvc.getMyProjects(req.user.id);
+    return successResponse(res, "Projects retrieved.", projects);
+  } catch (err) { next(err); }
+};
+
+const getProjectTasks = async (req, res, next) => {
+  try {
+    const data = await userSvc.getProjectTasks(req.params.id, req.user.id);
+    return successResponse(res, "Project tasks retrieved.", data);
+  } catch (err) {
+    if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
+    next(err);
+  }
+};
+
 const getTaskDetail = async (req, res, next) => {
   try {
     const task = await userSvc.getTaskDetail(req.params.id, req.user.id);
@@ -86,4 +103,12 @@ const streamAudio = async (req, res, next) => {
   }
 };
 
-module.exports = { getMyTasks, getTaskDetail, uploadAudio, submitTranscript, streamAudio };
+module.exports = {
+  getMyTasks,
+  getMyProjects,
+  getProjectTasks,
+  getTaskDetail,
+  uploadAudio,
+  submitTranscript,
+  streamAudio,
+};

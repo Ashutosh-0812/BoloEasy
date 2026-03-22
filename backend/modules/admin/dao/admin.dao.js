@@ -1,6 +1,8 @@
 const User = require("../../register/models/user.model");
 const Project = require("../models/project.model");
 const Task = require("../models/task.model");
+const ProjectAssignment = require("../models/projectAssignment.model");
+const TaskSubmission = require("../models/taskSubmission.model");
 
 // ─── Users ──────────────────────────────────────────────────────────────────
 
@@ -14,6 +16,10 @@ const getPendingUsers = async () => {
 
 const verifyUser = async (userId) => {
   return User.findByIdAndUpdate(userId, { isVerified: true }, { new: true }).select("-password");
+};
+
+const getUserById = async (userId) => {
+  return User.findById(userId).select("-password");
 };
 
 // ─── Projects ────────────────────────────────────────────────────────────────
@@ -76,6 +82,24 @@ const removeTaskFromProject = async (projectId, taskId) => {
   return Project.findByIdAndUpdate(projectId, { $pull: { tasks: taskId } }, { new: true });
 };
 
+const assignProjectToUser = async (projectId, userId, adminId) => {
+  return ProjectAssignment.findOneAndUpdate(
+    { projectId, userId },
+    { $set: { assignedBy: adminId } },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+};
+
+const getTaskSubmissions = async (taskId) => {
+  return TaskSubmission.find({ taskId })
+    .populate("userId", "name email")
+    .sort({ updatedAt: -1 });
+};
+
+const getTaskSubmissionById = async (submissionId) => {
+  return TaskSubmission.findById(submissionId).populate("userId", "name email");
+};
+
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 
 const getDashboardStats = async () => {
@@ -104,7 +128,11 @@ const getDashboardStats = async () => {
 
 module.exports = {
   getAllUsers, getPendingUsers, verifyUser,
+  getUserById,
   createProject, getAllProjects, getProjectById, updateProject, deleteProject,
   createTask, addTaskToProject, getTasksByProject, getTaskById, updateTask, deleteTask, removeTaskFromProject,
+  assignProjectToUser,
+  getTaskSubmissions,
+  getTaskSubmissionById,
   getDashboardStats,
 };

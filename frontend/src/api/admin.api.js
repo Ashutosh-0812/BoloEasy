@@ -7,6 +7,8 @@ export const getDashboard = () => api.get("/admin/dashboard");
 export const getAllUsers = () => api.get("/admin/users");
 export const getPendingUsers = () => api.get("/admin/users/pending");
 export const verifyUser = (id) => api.patch(`/admin/users/${id}/verify`);
+export const assignProjectToUser = (projectId, userId) =>
+	api.patch(`/admin/projects/${projectId}/assign/${userId}`);
 
 // Projects
 export const createProject = (data) => api.post("/admin/projects", data);
@@ -24,3 +26,5 @@ export const deleteTask = (id) => api.delete(`/admin/tasks/${id}`);
 
 // Admin view user submissions
 export const streamTaskAudio = (id) => api.get(`/admin/tasks/${id}/audio`, { responseType: 'blob' });
+export const getTaskSubmissions = (id) => api.get(`/admin/tasks/${id}/submissions`);
+export const streamSubmissionAudio = (id) => api.get(`/admin/submissions/${id}/audio`, { responseType: 'blob' });

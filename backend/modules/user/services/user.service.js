@@ -6,6 +6,29 @@ const getMyTasks = async (userId) => {
   return dao.getTasksForUser(userId);
 };
 
+const getMyProjects = async (userId) => {
+  return dao.getProjectsForUser(userId);
+};
+
+const getProjectTasks = async (projectId, userId) => {
+  const project = await dao.getProjectById(projectId);
+  if (!project) {
+    const err = new Error("Project not found.");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const hasAccess = await dao.userHasProject(userId, projectId);
+  if (!hasAccess) {
+    const err = new Error("Access denied. This project is not assigned to you.");
+    err.statusCode = 403;
+    throw err;
+  }
+
+  const tasks = await dao.getTasksForUserByProject(userId, projectId);
+  return { project, tasks };
+};
+
 const getTaskDetail = async (taskId, userId) => {
   const task = await dao.getTaskByIdForUser(taskId);
   if (!task) {
@@ -13,12 +36,20 @@ const getTaskDetail = async (taskId, userId) => {
     err.statusCode = 404;
     throw err;
   }
-  if (task.assignedTo && task.assignedTo.toString() !== userId.toString()) {
-    const err = new Error("Access denied. This task is not assigned to you.");
+  const hasAccess = await dao.userHasProject(userId, task.projectId);
+  if (!hasAccess) {
+    const err = new Error("Access denied. This project is not assigned to you.");
     err.statusCode = 403;
     throw err;
   }
-  return task;
+
+  const submission = await dao.getTaskSubmissionForUser(taskId, userId);
+  return {
+    ...task,
+    status: submission?.status || "pending",
+    audio: submission?.audio || null,
+    transcript: submission?.transcript || null,
+  };
 };
 
 const uploadTaskAudio = async (taskId, audioBuffer, userId, fileSize) => {
@@ -36,17 +67,24 @@ const uploadTaskAudio = async (taskId, audioBuffer, userId, fileSize) => {
   const { publicId, url, fileSizeBytes } = await uploadAudio(audioBuffer, taskId, userId);
 
   const status = existing.transcript?.trim() ? "completed" : "in-progress";
-  const task = await dao.saveAudio(taskId, { publicId, url, fileSizeBytes, status });
+  await dao.saveAudio(taskId, existing.projectId, userId, { publicId, url, fileSizeBytes, status });
   logger.info(`Audio saved to Cloudinary for task ${taskId} | user: ${userId} | publicId: ${publicId}`);
-  return task;
+  return getTaskDetail(taskId, userId);
 };
 
 const submitTranscript = async (taskId, transcript, userId) => {
   const existing = await getTaskDetail(taskId, userId);
   const status = existing.audio?.publicId ? "completed" : "in-progress";
-  const task = await dao.saveTranscript(taskId, transcript, status);
+  await dao.saveTranscript(taskId, existing.projectId, userId, transcript, status);
   logger.info(`Transcript submitted for task ${taskId} by user ${userId}`);
-  return task;
+  return getTaskDetail(taskId, userId);
 };
 
-module.exports = { getMyTasks, getTaskDetail, uploadAudio: uploadTaskAudio, submitTranscript };
+module.exports = {
+  getMyTasks,
+  getMyProjects,
+  getProjectTasks,
+  getTaskDetail,
+  uploadAudio: uploadTaskAudio,
+  submitTranscript,
+};
