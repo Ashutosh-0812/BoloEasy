@@ -5,6 +5,7 @@ import {
   getAllUsers,
   verifyUser,
   getAllProjects,
+  getAssignedProjectIdsByUser,
   assignProjectToUser,
 } from "../../api/admin.api";
 import { CheckCircle, Clock, ShieldCheck, FolderUp } from "lucide-react";
@@ -21,6 +22,8 @@ export default function AdminUsers() {
   const [assignModalUser, setAssignModalUser] = useState(null);
   const [selectedProjectIds, setSelectedProjectIds] = useState([]);
   const [pendingProjectId, setPendingProjectId] = useState("");
+  const [assignedProjectIds, setAssignedProjectIds] = useState([]);
+  const [loadingAssignedProjects, setLoadingAssignedProjects] = useState(false);
 
   const fetchUsers = () => {
     setLoading(true);
@@ -61,16 +64,35 @@ export default function AdminUsers() {
     setAssignModalUser(user);
     setSelectedProjectIds([]);
     setPendingProjectId("");
+    setAssignedProjectIds([]);
+
+    const requests = [];
     if (!projects.length) {
-      await fetchProjects();
+      requests.push(fetchProjects());
     }
+
+    setLoadingAssignedProjects(true);
+    requests.push(
+      getAssignedProjectIdsByUser(user._id)
+        .then((res) => setAssignedProjectIds(res.data.data || []))
+        .catch(() => toast.error("Failed to load assigned projects"))
+        .finally(() => setLoadingAssignedProjects(false))
+    );
+
+    await Promise.all(requests);
   };
 
   const closeAssignModal = () => {
     setAssignModalUser(null);
     setSelectedProjectIds([]);
     setPendingProjectId("");
+    setAssignedProjectIds([]);
+    setLoadingAssignedProjects(false);
   };
+
+  const availableProjects = projects.filter(
+    (p) => !assignedProjectIds.includes(p._id) && !selectedProjectIds.includes(p._id)
+  );
 
   const addPendingProject = () => {
     if (!pendingProjectId) return;
@@ -231,25 +253,27 @@ export default function AdminUsers() {
                   onChange={(e) => setPendingProjectId(e.target.value)}
                   onKeyDown={handleProjectPickerKeyDown}
                   className="input"
-                  disabled={loadingProjects || assigning || projects.length === 0}
+                  disabled={loadingProjects || loadingAssignedProjects || assigning || availableProjects.length === 0}
                 >
                   <option value="">Select project</option>
-                  {projects
-                    .filter((p) => !selectedProjectIds.includes(p._id))
-                    .map((p) => (
-                      <option key={p._id} value={p._id}>{p.name}</option>
-                    ))}
+                  {availableProjects.map((p) => (
+                    <option key={p._id} value={p._id}>{p.name}</option>
+                  ))}
                 </select>
                 <button
                   type="button"
                   className="btn-secondary"
                   onClick={addPendingProject}
-                  disabled={!pendingProjectId || loadingProjects || assigning}
+                  disabled={!pendingProjectId || loadingProjects || loadingAssignedProjects || assigning}
                 >
                   Add
                 </button>
               </div>
               <p className="text-xs text-primary-400 mt-1">Select a project and press Enter to add it as a tag.</p>
+
+              {!loadingProjects && !loadingAssignedProjects && projects.length > 0 && availableProjects.length === 0 && (
+                <p className="text-xs text-primary-400 mt-1">All projects are already assigned to this user.</p>
+              )}
 
               <div className="mt-2 flex flex-wrap gap-2">
                 {selectedProjectIds.map((projectId) => {
@@ -287,7 +311,7 @@ export default function AdminUsers() {
               <button
                 type="submit"
                 className="btn-primary"
-                disabled={assigning || loadingProjects || projects.length === 0}
+                disabled={assigning || loadingProjects || loadingAssignedProjects || projects.length === 0}
               >
                 {assigning ? "Assigning..." : "Assign"}
               </button>

@@ -7,6 +7,7 @@ export const getDashboard = () => api.get("/admin/dashboard");
 export const getAllUsers = () => api.get("/admin/users");
 export const getPendingUsers = () => api.get("/admin/users/pending");
 export const verifyUser = (id) => api.patch(`/admin/users/${id}/verify`);
+export const getAssignedProjectIdsByUser = (userId) => api.get(`/admin/users/${userId}/assigned-projects`);
 export const assignProjectToUser = (projectId, userId) =>
 	api.patch(`/admin/projects/${projectId}/assign/${userId}`);
 
