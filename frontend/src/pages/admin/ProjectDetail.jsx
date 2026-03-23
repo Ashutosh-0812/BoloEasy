@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import AdminLayout from "../../components/layout/AdminLayout";
 import Modal from "../../components/ui/Modal";
 import {
-  getProjectById, createTask, updateTask, deleteTask, getAllUsers, getTaskById, getTaskSubmissions, streamSubmissionAudio
+  getProjectById, createTask, updateTask, deleteTask, getAllUsers, getTaskById, getTaskSubmissions, streamSubmissionAudio, uploadTasksExcel
 } from "../../api/admin.api";
-import { Plus, Trash2, Pencil, ChevronLeft, Mic2, FileAudio, FileText, User2, CalendarClock } from "lucide-react";
+import { Plus, Trash2, Pencil, ChevronLeft, Mic2, FileAudio, FileText, User2, CalendarClock, Upload } from "lucide-react";
 import { PageSpinner, Spinner } from "../../components/ui/Spinner";
 import toast from "react-hot-toast";
 
@@ -37,6 +37,8 @@ export default function ProjectDetail() {
   const [selectedSubmissionId, setSelectedSubmissionId] = useState("");
   const [submissionLoading, setSubmissionLoading] = useState(false);
   const [submissionAudioUrl, setSubmissionAudioUrl] = useState(null);
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const excelInputRef = useRef(null);
 
   const fetchProject = () => {
     Promise.all([getProjectById(id), getAllUsers()])
@@ -159,6 +161,38 @@ export default function ProjectDetail() {
     catch { toast.error("Delete failed"); }
   };
 
+  const handleExcelSelection = async (event) => {
+    const selectedFile = event.target.files?.[0];
+    event.target.value = "";
+    if (!selectedFile) return;
+
+    setBulkUploading(true);
+    try {
+      const response = await uploadTasksExcel(id, selectedFile);
+      const result = response.data?.data;
+      const message = response.data?.message || "Tasks imported.";
+      toast.success(message);
+
+      if (result?.errors?.length) {
+        const previewErrors = result.errors.slice(0, 5)
+          .map((item) => `Row ${item.row}: ${item.message}`)
+          .join("\n");
+        toast.error(`Some rows were skipped:\n${previewErrors}`);
+      }
+
+      fetchProject();
+    } catch (err) {
+      const errs = err.response?.data?.errors;
+      if (errs?.length) {
+        errs.forEach((e) => toast.error(e.message));
+      } else {
+        toast.error(err.response?.data?.message || "Excel upload failed");
+      }
+    } finally {
+      setBulkUploading(false);
+    }
+  };
+
   return (
     <AdminLayout>
       <Link to="/admin/projects" className="flex items-center gap-1.5 text-sm text-black/70 hover:text-black mb-6 transition">
@@ -172,9 +206,26 @@ export default function ProjectDetail() {
               <h1 className="text-2xl font-bold text-primary-900 mb-1">{project?.name}</h1>
               <p className="text-primary-500 text-sm">{project?.description || "No description"}</p>
             </div>
-            <button onClick={openCreate} className="btn-primary flex items-center gap-2 shrink-0">
-              <Plus size={16} /> Add Task
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <input
+                ref={excelInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={handleExcelSelection}
+              />
+              <button
+                onClick={() => excelInputRef.current?.click()}
+                className="btn-secondary flex items-center gap-2"
+                disabled={bulkUploading}
+                title="Upload an Excel file with columns: type, text, prompt, assignedTo(optional)"
+              >
+                <Upload size={16} /> {bulkUploading ? "Uploading..." : "Upload Excel"}
+              </button>
+              <button onClick={openCreate} className="btn-primary flex items-center gap-2">
+                <Plus size={16} /> Add Task
+              </button>
+            </div>
           </div>
 
           <div className="card p-0 overflow-hidden border border-[#c3cdc0] shadow-sm">

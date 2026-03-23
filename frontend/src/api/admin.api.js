@@ -19,6 +19,13 @@ export const deleteProject = (id) => api.delete(`/admin/projects/${id}`);
 
 // Tasks
 export const createTask = (projectId, data) => api.post(`/admin/projects/${projectId}/tasks`, data);
+export const uploadTasksExcel = (projectId, file) => {
+	const formData = new FormData();
+	formData.append("file", file);
+	return api.post(`/admin/projects/${projectId}/tasks/upload`, formData, {
+		headers: { "Content-Type": "multipart/form-data" },
+	});
+};
 export const getTasksByProject = (projectId) => api.get(`/admin/projects/${projectId}/tasks`);
 export const getTaskById = (id) => api.get(`/admin/tasks/${id}`);
 export const updateTask = (id, data) => api.patch(`/admin/tasks/${id}`, data);

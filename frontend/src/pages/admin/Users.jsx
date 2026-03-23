@@ -19,7 +19,8 @@ export default function AdminUsers() {
   const [verifying, setVerifying] = useState(null);
   const [assigning, setAssigning] = useState(false);
   const [assignModalUser, setAssignModalUser] = useState(null);
-  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [selectedProjectIds, setSelectedProjectIds] = useState([]);
+  const [pendingProjectId, setPendingProjectId] = useState("");
 
   const fetchUsers = () => {
     setLoading(true);
@@ -58,7 +59,8 @@ export default function AdminUsers() {
 
   const openAssignModal = async (user) => {
     setAssignModalUser(user);
-    setSelectedProjectId("");
+    setSelectedProjectIds([]);
+    setPendingProjectId("");
     if (!projects.length) {
       await fetchProjects();
     }
@@ -66,24 +68,57 @@ export default function AdminUsers() {
 
   const closeAssignModal = () => {
     setAssignModalUser(null);
-    setSelectedProjectId("");
+    setSelectedProjectIds([]);
+    setPendingProjectId("");
+  };
+
+  const addPendingProject = () => {
+    if (!pendingProjectId) return;
+    setSelectedProjectIds((prev) => (prev.includes(pendingProjectId) ? prev : [...prev, pendingProjectId]));
+    setPendingProjectId("");
+  };
+
+  const removeSelectedProject = (projectId) => {
+    setSelectedProjectIds((prev) => prev.filter((id) => id !== projectId));
+  };
+
+  const handleProjectPickerKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addPendingProject();
+    }
   };
 
   const handleAssign = async (e) => {
     e.preventDefault();
-    if (!assignModalUser?._id || !selectedProjectId) {
-      toast.error("Please select a project");
+    if (!assignModalUser?._id || selectedProjectIds.length === 0) {
+      toast.error("Please select at least one project");
       return;
     }
 
     setAssigning(true);
     try {
-      await assignProjectToUser(selectedProjectId, assignModalUser._id);
-      toast.success(`Project assigned to ${assignModalUser.name}`);
+      const results = await Promise.allSettled(
+        selectedProjectIds.map((projectId) => assignProjectToUser(projectId, assignModalUser._id))
+      );
+
+      const successCount = results.filter((r) => r.status === "fulfilled").length;
+      const failureCount = results.length - successCount;
+
+      if (successCount > 0 && failureCount === 0) {
+        toast.success(`${successCount} project(s) assigned to ${assignModalUser.name}`);
+      } else if (successCount > 0 && failureCount > 0) {
+        toast.success(`${successCount} project(s) assigned`);
+        toast.error(`${failureCount} project(s) failed to assign`);
+      } else {
+        const firstError = results.find((r) => r.status === "rejected");
+        const message = firstError?.reason?.response?.data?.message || "Project assignment failed";
+        toast.error(message);
+        return;
+      }
+
       closeAssignModal();
       fetchUsers();
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Project assignment failed");
     } finally {
       setAssigning(false);
     }
@@ -189,19 +224,57 @@ export default function AdminUsers() {
               <p className="text-sm text-primary-500 mb-2">
                 Assign a project to <span className="font-semibold text-primary-900">{assignModalUser.name}</span>
               </p>
-              <label className="label">Project</label>
-              <select
-                value={selectedProjectId}
-                onChange={(e) => setSelectedProjectId(e.target.value)}
-                className="input"
-                disabled={loadingProjects || assigning}
-                required
-              >
-                <option value="">Select project</option>
-                {projects.map((p) => (
-                  <option key={p._id} value={p._id}>{p.name}</option>
-                ))}
-              </select>
+              <label className="label">Projects</label>
+              <div className="flex gap-2">
+                <select
+                  value={pendingProjectId}
+                  onChange={(e) => setPendingProjectId(e.target.value)}
+                  onKeyDown={handleProjectPickerKeyDown}
+                  className="input"
+                  disabled={loadingProjects || assigning || projects.length === 0}
+                >
+                  <option value="">Select project</option>
+                  {projects
+                    .filter((p) => !selectedProjectIds.includes(p._id))
+                    .map((p) => (
+                      <option key={p._id} value={p._id}>{p.name}</option>
+                    ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={addPendingProject}
+                  disabled={!pendingProjectId || loadingProjects || assigning}
+                >
+                  Add
+                </button>
+              </div>
+              <p className="text-xs text-primary-400 mt-1">Select a project and press Enter to add it as a tag.</p>
+
+              <div className="mt-2 flex flex-wrap gap-2">
+                {selectedProjectIds.map((projectId) => {
+                  const project = projects.find((p) => p._id === projectId);
+                  if (!project) return null;
+                  return (
+                    <span
+                      key={projectId}
+                      className="inline-flex items-center gap-1 rounded-full bg-primary-100 text-primary-700 px-2.5 py-1 text-xs"
+                    >
+                      {project.name}
+                      <button
+                        type="button"
+                        className="font-semibold"
+                        onClick={() => removeSelectedProject(projectId)}
+                        disabled={assigning}
+                        aria-label={`Remove ${project.name}`}
+                      >
+                        x
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+
               {!loadingProjects && projects.length === 0 && (
                 <p className="text-xs text-amber-600 mt-1">No projects found. Create a project first.</p>
               )}
