@@ -237,9 +237,9 @@ export default function TaskDetail() {
           </div>
 
           {/* Text to read */}
-          <div className="card bg-gradient-to-br from-primary-900/30 to-surface-card border-primary-500/20">
+          <div className="card bg-slate-50 border border-slate-200">
             <p className="label mb-3 text-primary-400">Text to Read</p>
-            <p className="text-white text-lg font-medium leading-relaxed whitespace-pre-wrap break-all">{task.text}</p>
+            <p className="text-primary-900 text-lg font-medium leading-relaxed whitespace-pre-wrap break-all">{task.text}</p>
           </div>
 
           {/* Audio status */}
