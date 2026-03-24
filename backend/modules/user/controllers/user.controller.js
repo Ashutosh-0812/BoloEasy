@@ -70,16 +70,6 @@ const uploadAudio = async (req, res, next) => {
   }
 };
 
-const submitTranscript = async (req, res, next) => {
-  try {
-    const task = await userSvc.submitTranscript(req.params.id, req.body.transcript, req.user.id);
-    return successResponse(res, "Transcript submitted successfully.", task);
-  } catch (err) {
-    if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
-    next(err);
-  }
-};
-
 /**
  * Stream audio from Cloudinary back to the client.
  */
@@ -109,6 +99,5 @@ module.exports = {
   getProjectTasks,
   getTaskDetail,
   uploadAudio,
-  submitTranscript,
   streamAudio,
 };

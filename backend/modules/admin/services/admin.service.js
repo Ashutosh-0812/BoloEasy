@@ -1,5 +1,59 @@
 const dao = require("../dao/admin.dao");
 const logger = require("../../../logging/logger");
+const xlsx = require("xlsx");
+
+const normalizeHeader = (value = "") => String(value).trim().toLowerCase().replace(/[_\s-]+/g, "");
+
+const getCellValue = (row, aliases) => {
+  const rowKeys = Object.keys(row || {});
+  const matchedKey = rowKeys.find((key) => aliases.includes(normalizeHeader(key)));
+  return matchedKey ? row[matchedKey] : undefined;
+};
+
+const DEFAULT_PROMPT = "Read the text clearly";
+
+const NON_LANGUAGE_HEADERS = new Set([
+  "sno",
+  "s.no",
+  "serialno",
+  "serialnumber",
+  "type",
+  "tasktype",
+  "taskname",
+  "task",
+  "text",
+  "tasktext",
+  "content",
+  "prompt",
+  "instruction",
+  "instructions",
+  "assignedto",
+  "assignedtoid",
+  "assignedtoemail",
+  "assignee",
+  "assigneeemail",
+]);
+
+const getLanguageVariantsFromRow = (row = {}) => {
+  const variants = {};
+
+  Object.keys(row).forEach((key) => {
+    const normalized = normalizeHeader(key);
+    if (!normalized || NON_LANGUAGE_HEADERS.has(normalized)) return;
+
+    const value = toText(row[key]);
+    if (!value) return;
+
+    variants[String(key).trim()] = value;
+  });
+
+  return variants;
+};
+
+const toText = (value) => {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
+};
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 const getDashboard = async () => dao.getDashboardStats();
@@ -57,6 +111,17 @@ const assignProjectToUser = async (projectId, userId, adminId) => {
     userId,
     assignment: "created-or-updated",
   };
+};
+
+const getAssignedProjectIdsByUser = async (userId) => {
+  const user = await dao.getUserById(userId);
+  if (!user) {
+    const err = new Error("User not found.");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  return dao.getAssignedProjectIdsByUser(userId);
 };
 
 const getTaskSubmissions = async (taskId) => {
@@ -122,7 +187,7 @@ const deleteProject = async (id) => {
 };
 
 // ─── Tasks ────────────────────────────────────────────────────────────────────
-const createTask = async ({ projectId, type, text, prompt, assignedTo }) => {
+const createTask = async ({ projectId, type, text, prompt, languageVariants, assignedTo }) => {
   // Ensure project exists
   const project = await dao.getProjectById(projectId);
   if (!project) {
@@ -133,6 +198,9 @@ const createTask = async ({ projectId, type, text, prompt, assignedTo }) => {
 
   // Build task data
   const taskData = { projectId, type, text, prompt };
+  if (languageVariants && Object.keys(languageVariants).length) {
+    taskData.languageVariants = languageVariants;
+  }
   if (assignedTo) {
     taskData.assignedTo = assignedTo;
   }
@@ -182,12 +250,138 @@ const deleteTask = async (id) => {
   return task;
 };
 
+const createTasksFromExcel = async (projectId, fileBuffer) => {
+  const project = await dao.getProjectById(projectId);
+  if (!project) {
+    const err = new Error("Project not found.");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  let workbook;
+  try {
+    workbook = xlsx.read(fileBuffer, { type: "buffer" });
+  } catch {
+    const err = new Error("Invalid Excel file. Please upload a valid .xlsx or .xls file.");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const firstSheetName = workbook.SheetNames?.[0];
+  if (!firstSheetName) {
+    const err = new Error("Excel file is empty.");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const sheet = workbook.Sheets[firstSheetName];
+  const rows = xlsx.utils.sheet_to_json(sheet, { defval: "", raw: false });
+
+  if (!rows.length) {
+    const err = new Error("No rows found in the uploaded file.");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (rows.length > 500) {
+    const err = new Error("Maximum 500 tasks can be uploaded at once.");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const rowErrors = [];
+  const createdTasks = [];
+  const createdTaskIds = [];
+
+  for (let index = 0; index < rows.length; index += 1) {
+    const row = rows[index];
+    const excelRowNumber = index + 2;
+
+    const type = toText(getCellValue(row, ["taskname"]));
+    const text = toText(getCellValue(row, ["text", "tasktext", "content", "english"]));
+    const prompt = toText(getCellValue(row, ["prompt", "instruction", "instructions"])) || DEFAULT_PROMPT;
+    const assignedToRaw = toText(getCellValue(row, ["assignedto", "assignedtoid", "assignedtoemail", "assignee", "assigneeemail"]));
+    const languageVariants = getLanguageVariantsFromRow(row);
+
+    if (!languageVariants.English && text) {
+      languageVariants.English = text;
+    }
+
+    if (!type || !text) {
+      rowErrors.push({ row: excelRowNumber, message: "Task Name and Text are required." });
+      continue;
+    }
+
+    if (text.length > 5000) {
+      rowErrors.push({ row: excelRowNumber, message: "Text must be at most 5000 characters." });
+      continue;
+    }
+
+    if (prompt.length > 1000) {
+      rowErrors.push({ row: excelRowNumber, message: "Prompt must be at most 1000 characters." });
+      continue;
+    }
+
+    let assignedTo;
+    if (assignedToRaw) {
+      let user = null;
+      if (/^[a-f\d]{24}$/i.test(assignedToRaw)) {
+        user = await dao.getUserById(assignedToRaw);
+      } else if (assignedToRaw.includes("@")) {
+        user = await dao.getUserByEmail(assignedToRaw);
+      }
+
+      if (!user) {
+        rowErrors.push({ row: excelRowNumber, message: "assignedTo user not found (use valid user ID or email)." });
+        continue;
+      }
+
+      if (user.role !== "user") {
+        rowErrors.push({ row: excelRowNumber, message: "assignedTo must be a user account." });
+        continue;
+      }
+
+      if (!user.isVerified) {
+        rowErrors.push({ row: excelRowNumber, message: "assignedTo user must be verified." });
+        continue;
+      }
+
+      assignedTo = user._id;
+    }
+
+    try {
+      const task = await dao.createTask({ projectId, type, text, prompt, languageVariants, assignedTo });
+      createdTasks.push(task);
+      createdTaskIds.push(task._id);
+    } catch (err) {
+      rowErrors.push({ row: excelRowNumber, message: err.message || "Failed to create task." });
+    }
+  }
+
+  if (createdTaskIds.length) {
+    await dao.addTasksToProject(projectId, createdTaskIds);
+  }
+
+  logger.info(
+    `Bulk task upload completed | project: ${projectId} | created: ${createdTasks.length} | failed: ${rowErrors.length}`
+  );
+
+  return {
+    createdCount: createdTasks.length,
+    failedCount: rowErrors.length,
+    totalRows: rows.length,
+    errors: rowErrors,
+    tasks: createdTasks,
+  };
+};
+
 module.exports = {
   getDashboard,
   getAllUsers, getPendingUsers, verifyUser,
   assignProjectToUser,
+  getAssignedProjectIdsByUser,
   getTaskSubmissions,
   getTaskSubmissionById,
   createProject, getAllProjects, getProjectById, updateProject, deleteProject,
-  createTask, getTasksByProject, getTaskById, updateTask, deleteTask,
+  createTask, createTasksFromExcel, getTasksByProject, getTaskById, updateTask, deleteTask,
 };

@@ -80,15 +80,15 @@ export default function AdminLayout({ children }) {
       {/* Main */}
       <main className="flex-1 overflow-y-auto bg-surface flex flex-col min-w-0">
         {/* Mobile top bar */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-white/20 bg-primary-600 md:hidden shrink-0">
-          <button onClick={() => setSidebarOpen(true)} className="text-white/70 hover:text-white transition">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white md:hidden shrink-0">
+          <button onClick={() => setSidebarOpen(true)} className="text-gray-700 hover:text-gray-900 transition">
             <Menu size={22} />
           </button>
           <div className="flex items-center gap-2">
-            <Mic2 className="text-white" size={18} />
-            <span className="font-bold text-white tracking-tight">Bolo</span>
+            <Mic2 className="text-gray-800" size={18} />
+            <span className="font-bold text-gray-800 tracking-tight">Bolo</span>
           </div>
-          <span className="text-xs text-white/60 font-semibold uppercase tracking-widest ml-1">Admin</span>
+          <span className="text-xs text-gray-600 font-semibold uppercase tracking-widest ml-1">Admin</span>
         </div>
         <div className="flex-1 overflow-y-auto p-4 md:p-8">{children}</div>
       </main>

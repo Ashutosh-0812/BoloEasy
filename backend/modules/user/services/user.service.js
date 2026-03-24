@@ -48,7 +48,6 @@ const getTaskDetail = async (taskId, userId) => {
     ...task,
     status: submission?.status || "pending",
     audio: submission?.audio || null,
-    transcript: submission?.transcript || null,
   };
 };
 
@@ -66,17 +65,9 @@ const uploadTaskAudio = async (taskId, audioBuffer, userId, fileSize) => {
 
   const { publicId, url, fileSizeBytes } = await uploadAudio(audioBuffer, taskId, userId);
 
-  const status = existing.transcript?.trim() ? "completed" : "in-progress";
+  const status = "completed";
   await dao.saveAudio(taskId, existing.projectId, userId, { publicId, url, fileSizeBytes, status });
   logger.info(`Audio saved to Cloudinary for task ${taskId} | user: ${userId} | publicId: ${publicId}`);
-  return getTaskDetail(taskId, userId);
-};
-
-const submitTranscript = async (taskId, transcript, userId) => {
-  const existing = await getTaskDetail(taskId, userId);
-  const status = existing.audio?.publicId ? "completed" : "in-progress";
-  await dao.saveTranscript(taskId, existing.projectId, userId, transcript, status);
-  logger.info(`Transcript submitted for task ${taskId} by user ${userId}`);
   return getTaskDetail(taskId, userId);
 };
 
@@ -86,5 +77,4 @@ module.exports = {
   getProjectTasks,
   getTaskDetail,
   uploadAudio: uploadTaskAudio,
-  submitTranscript,
 };

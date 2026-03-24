@@ -1,7 +1,5 @@
 const { body, param } = require("express-validator");
 
-const TASK_TYPES = ["name entity-read", "name entity-variable", "name entity-sentence"];
-
 // ─── Project Validators ───────────────────────────────────────────────────────
 
 const createProjectValidator = [
@@ -34,7 +32,7 @@ const createTaskValidator = [
   body("type")
     .trim()
     .notEmpty().withMessage("Task type is required")
-    .isIn(TASK_TYPES).withMessage(`Type must be one of: ${TASK_TYPES.join(", ")}`),
+    .isLength({ max: 200 }).withMessage("Task type must be at most 200 characters"),
 
   body("text")
     .trim()
@@ -55,7 +53,7 @@ const updateTaskValidator = [
   body("type")
     .optional()
     .trim()
-    .isIn(TASK_TYPES).withMessage(`Type must be one of: ${TASK_TYPES.join(", ")}`),
+    .isLength({ max: 200 }).withMessage("Task type must be at most 200 characters"),
 
   body("text")
     .optional()

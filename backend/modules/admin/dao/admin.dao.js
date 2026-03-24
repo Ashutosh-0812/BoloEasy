@@ -22,6 +22,10 @@ const getUserById = async (userId) => {
   return User.findById(userId).select("-password");
 };
 
+const getUserByEmail = async (email) => {
+  return User.findOne({ email: String(email).trim().toLowerCase() }).select("-password");
+};
+
 // ─── Projects ────────────────────────────────────────────────────────────────
 
 const createProject = async (data) => {
@@ -57,6 +61,10 @@ const addTaskToProject = async (projectId, taskId) => {
   return Project.findByIdAndUpdate(projectId, { $push: { tasks: taskId } }, { new: true });
 };
 
+const addTasksToProject = async (projectId, taskIds) => {
+  return Project.findByIdAndUpdate(projectId, { $push: { tasks: { $each: taskIds } } }, { new: true });
+};
+
 const getTasksByProject = async (projectId) => {
   return Task.find({ projectId })
     .select("-audio.data")
@@ -88,6 +96,11 @@ const assignProjectToUser = async (projectId, userId, adminId) => {
     { $set: { assignedBy: adminId } },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
+};
+
+const getAssignedProjectIdsByUser = async (userId) => {
+  const assignments = await ProjectAssignment.find({ userId }).select("projectId").lean();
+  return assignments.map((a) => a.projectId.toString());
 };
 
 const getTaskSubmissions = async (taskId) => {
@@ -128,10 +141,11 @@ const getDashboardStats = async () => {
 
 module.exports = {
   getAllUsers, getPendingUsers, verifyUser,
-  getUserById,
+  getUserById, getUserByEmail,
   createProject, getAllProjects, getProjectById, updateProject, deleteProject,
-  createTask, addTaskToProject, getTasksByProject, getTaskById, updateTask, deleteTask, removeTaskFromProject,
+  createTask, addTaskToProject, addTasksToProject, getTasksByProject, getTaskById, updateTask, deleteTask, removeTaskFromProject,
   assignProjectToUser,
+  getAssignedProjectIdsByUser,
   getTaskSubmissions,
   getTaskSubmissionById,
   getDashboardStats,

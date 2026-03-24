@@ -4,7 +4,6 @@ const ctrl = require("./controllers/user.controller");
 const { authenticate, requireRole } = require("../../middlewares/auth");
 const validate = require("../../middlewares/validate");
 const { validateObjectId } = require("../../validators/common.validator");
-const { transcriptValidator } = require("./validators/user.validator");
 const audioUpload = require("./services/audioUpload.service");
 
 // All user routes require authentication + user role
@@ -32,12 +31,5 @@ router.post(
 
 // GET /api/user/tasks/:id/audio  — stream audio directly from Cloudinary
 router.get("/tasks/:id/audio", [validateObjectId("id"), validate], ctrl.streamAudio);
-
-// POST /api/user/tasks/:id/transcript
-router.post(
-  "/tasks/:id/transcript",
-  [validateObjectId("id"), ...transcriptValidator, validate],
-  ctrl.submitTranscript
-);
 
 module.exports = router;

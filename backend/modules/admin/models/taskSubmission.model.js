@@ -31,10 +31,6 @@ const taskSubmissionSchema = new mongoose.Schema(
       uploadedAt: { type: Date, default: null },
       fileSizeBytes: { type: Number, default: 0 },
     },
-    transcript: {
-      type: String,
-      default: null,
-    },
     status: {
       type: String,
       enum: ["pending", "in-progress", "completed"],

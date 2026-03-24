@@ -47,6 +47,16 @@ const assignProjectToUser = async (req, res, next) => {
   }
 };
 
+const getAssignedProjectIdsByUser = async (req, res, next) => {
+  try {
+    const assignedProjectIds = await svc.getAssignedProjectIdsByUser(req.params.userId);
+    return successResponse(res, "Assigned projects retrieved.", assignedProjectIds);
+  } catch (err) {
+    if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
+    next(err);
+  }
+};
+
 // ─── Projects ─────────────────────────────────────────────────────────────────
 const createProject = async (req, res, next) => {
   try {
@@ -97,6 +107,24 @@ const createTask = async (req, res, next) => {
   try {
     const task = await svc.createTask({ projectId: req.params.projectId, ...req.body });
     return successResponse(res, "Task created.", task, 201);
+  } catch (err) {
+    if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
+    next(err);
+  }
+};
+
+const uploadTasksExcel = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return errorResponse(res, "Excel file is required. Upload .xlsx or .xls.", 400);
+    }
+
+    const result = await svc.createTasksFromExcel(req.params.projectId, req.file.buffer);
+    const message = result.failedCount
+      ? `Uploaded with partial success. Created ${result.createdCount} of ${result.totalRows} tasks.`
+      : `Successfully created ${result.createdCount} tasks.`;
+
+    return successResponse(res, message, result, 201);
   } catch (err) {
     if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
     next(err);
@@ -195,8 +223,9 @@ module.exports = {
   getDashboard,
   getAllUsers, getPendingUsers, verifyUser,
   assignProjectToUser,
+  getAssignedProjectIdsByUser,
   createProject, getAllProjects, getProjectById, updateProject, deleteProject,
-  createTask, getTasksByProject, getTaskById, updateTask, deleteTask,
+  createTask, uploadTasksExcel, getTasksByProject, getTaskById, updateTask, deleteTask,
   streamTaskAudio,
   getTaskSubmissions,
   streamSubmissionAudio,

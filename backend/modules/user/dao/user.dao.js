@@ -24,7 +24,6 @@ const getTasksForUser = async (userId) => {
       ...task,
       status: submission?.status || "pending",
       audio: submission?.audio || null,
-      transcript: submission?.transcript || null,
     };
   });
 };
@@ -101,7 +100,6 @@ const getTasksForUserByProject = async (userId, projectId) => {
       ...task,
       status: submission?.status || "pending",
       audio: submission?.audio || task.audio,
-      transcript: submission?.transcript || null,
     };
   });
 };
@@ -133,38 +131,6 @@ const saveAudio = async (taskId, projectId, userId, { publicId, url, fileSizeByt
         "audio.uploadedAt": new Date(),
         "audio.fileSizeBytes": fileSizeBytes,
       },
-      $setOnInsert: {
-        transcript: null,
-      },
-    },
-    { new: true, upsert: true, setDefaultsOnInsert: true }
-  );
-};
-
-const saveTranscript = async (taskId, projectId, userId, transcript, status) => {
-  return TaskSubmission.findOneAndUpdate(
-    { taskId, userId },
-    {
-      $set: {
-        taskId,
-        projectId,
-        userId,
-        transcript,
-        status,
-      },
-      $setOnInsert: {
-        audio: {
-          provider: null,
-          publicId: null,
-          url: null,
-          contentType: "audio/wav",
-          sampleRate: 16000,
-          bitDepth: 16,
-          channels: 1,
-          uploadedAt: null,
-          fileSizeBytes: 0,
-        },
-      },
     },
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );
@@ -179,5 +145,4 @@ module.exports = {
   getTaskByIdForUser,
   getTaskSubmissionForUser,
   saveAudio,
-  saveTranscript,
 };

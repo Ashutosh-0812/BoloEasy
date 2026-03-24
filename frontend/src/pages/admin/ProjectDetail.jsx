@@ -9,7 +9,7 @@ import { Plus, Trash2, Pencil, ChevronLeft, Mic2, FileAudio, FileText, User2, Ca
 import { PageSpinner, Spinner } from "../../components/ui/Spinner";
 import toast from "react-hot-toast";
 
-const TASK_TYPES = ["name entity-read", "name entity-variable", "name entity-sentence"];
+const TASK_TYPES = ["NE Read", "NE Variance", "NE Sentence"];
 const EMPTY_TASK = { type: TASK_TYPES[0], text: "", prompt: "", assignedTo: "" };
 
 const formatDateTime = (value) => {
@@ -218,7 +218,7 @@ export default function ProjectDetail() {
                 onClick={() => excelInputRef.current?.click()}
                 className="btn-secondary flex items-center gap-2"
                 disabled={bulkUploading}
-                title="Upload an Excel file with columns: type, text, prompt, assignedTo(optional)"
+                title="Upload Excel with Task Name, Text, language columns (English/Telugu/Hindi...), prompt optional"
               >
                 <Upload size={16} /> {bulkUploading ? "Uploading..." : "Upload Excel"}
               </button>
@@ -353,13 +353,13 @@ export default function ProjectDetail() {
               <input value={form.prompt} onChange={(e) => setForm((f) => ({ ...f, prompt: e.target.value }))}
                 className="input" placeholder="e.g. Read the sentence below clearly" required />
             </div>
-            <div>
+           {/* <div>
               <label className="label">Assign To <span className="normal-case text-slate-500">(optional)</span></label>
               <select value={form.assignedTo} onChange={(e) => setForm((f) => ({ ...f, assignedTo: e.target.value }))} className="input">
                 <option value="">— Unassigned —</option>
                 {users.map((u) => <option key={u._id} value={u._id}>{u.name} ({u.email})</option>)}
               </select>
-            </div>
+            </div>*/}
             <div className="flex gap-3 justify-end pt-2">
               <button type="submit" disabled={saving} className="btn-secondary">
                 {saving ? "Saving…" : editing ? "Update Task" : "Create Task"}
@@ -453,7 +453,7 @@ export default function ProjectDetail() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div className="rounded-2xl border border-[#c7d1c3] bg-[#eef2ec] p-4">
                   <div className="flex items-center gap-2 mb-3 text-black/80">
                     <FileAudio size={16} className="text-emerald-400" />
@@ -490,18 +490,6 @@ export default function ProjectDetail() {
                       <p className="text-black/60 text-sm">No audio submission available for this selection yet.</p>
                     </div>
                   )}
-                </div>
-
-                <div className="rounded-2xl border border-[#c7d1c3] bg-[#eef2ec] p-4">
-                  <div className="flex items-center gap-2 mb-3 text-black/80">
-                    <FileText size={16} className="text-amber-400" />
-                    <p className="label m-0">Transcript</p>
-                  </div>
-                  <div className="rounded-xl bg-white border border-[#d0d9cd] p-4 min-h-[220px]">
-                    <p className="text-black/80 whitespace-pre-wrap break-all text-sm leading-relaxed">
-                      {selectedSubmission?.transcript || "No transcript submitted yet."}
-                    </p>
-                  </div>
                 </div>
               </div>
 
