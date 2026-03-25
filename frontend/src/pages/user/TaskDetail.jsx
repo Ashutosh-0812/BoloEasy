@@ -54,6 +54,8 @@ export default function TaskDetail() {
   };
 
   const fetchTask = async (taskId, { smooth = false } = {}) => {
+    if (!taskId) return;
+
     if (smooth) setSwitchingTask(true);
     else setLoading(true);
 
@@ -147,7 +149,7 @@ export default function TaskDetail() {
       const file = new File([audioBlob], `${task.taskId}.wav`, { type: "audio/wav" });
       await uploadAudio(id, file);
       toast.success("Audio submitted successfully!");
-      await fetchTask();
+      await fetchTask(id);
     } catch (err) {
       toast.error(err.response?.data?.message || "Submission failed");
     } finally {
