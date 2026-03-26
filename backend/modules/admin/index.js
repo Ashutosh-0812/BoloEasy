@@ -4,6 +4,7 @@ const ctrl = require("./controllers/admin.controller");
 const { authenticate, requireRole } = require("../../middlewares/auth");
 const validate = require("../../middlewares/validate");
 const { validateObjectId } = require("../../validators/common.validator");
+const excelUpload = require("./services/taskExcelUpload.service");
 const {
   createProjectValidator,
   updateProjectValidator,
@@ -21,6 +22,21 @@ router.get("/dashboard", ctrl.getDashboard);
 router.get("/users", ctrl.getAllUsers);
 router.get("/users/pending", ctrl.getPendingUsers);
 router.patch("/users/:id/verify", [validateObjectId("id"), validate], ctrl.verifyUser);
+router.patch(
+  "/projects/:projectId/assign/:userId",
+  [validateObjectId("projectId"), validateObjectId("userId"), validate],
+  ctrl.assignProjectToUser
+);
+router.delete(
+  "/projects/:projectId/assign/:userId",
+  [validateObjectId("projectId"), validateObjectId("userId"), validate],
+  ctrl.unassignProjectFromUser
+);
+router.get(
+  "/users/:userId/assigned-projects",
+  [validateObjectId("userId"), validate],
+  ctrl.getAssignedProjectIdsByUser
+);
 
 // ─── Projects ─────────────────────────────────────────────────────────────────
 router.post("/projects", createProjectValidator, validate, ctrl.createProject);
@@ -31,9 +47,20 @@ router.delete("/projects/:id", [validateObjectId("id"), validate], ctrl.deletePr
 
 // ─── Tasks ────────────────────────────────────────────────────────────────────
 router.post("/projects/:projectId/tasks", [validateObjectId("projectId"), ...createTaskValidator, validate], ctrl.createTask);
+router.post(
+  "/projects/:projectId/tasks/upload",
+  [validateObjectId("projectId"), validate],
+  excelUpload.single("file"),
+  ctrl.uploadTasksExcel
+);
 router.get("/projects/:projectId/tasks", [validateObjectId("projectId"), validate], ctrl.getTasksByProject);
 router.get("/tasks/:id", [validateObjectId("id"), validate], ctrl.getTaskById);
 router.patch("/tasks/:id", [validateObjectId("id"), ...updateTaskValidator, validate], ctrl.updateTask);
 router.delete("/tasks/:id", [validateObjectId("id"), validate], ctrl.deleteTask);
+
+// ─── Admin view user submissions ─────────────────────────────────────────────
+router.get("/tasks/:id/audio", [validateObjectId("id"), validate], ctrl.streamTaskAudio);
+router.get("/tasks/:id/submissions", [validateObjectId("id"), validate], ctrl.getTaskSubmissions);
+router.get("/submissions/:id/audio", [validateObjectId("id"), validate], ctrl.streamSubmissionAudio);
 
 module.exports = router;

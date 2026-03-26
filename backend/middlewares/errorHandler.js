@@ -26,6 +26,14 @@ const errorHandler = (err, req, res, next) => {
     return errorResponse(res, `${field} already exists.`, 409);
   }
 
+  // Multer upload errors
+  if (err.name === "MulterError") {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return errorResponse(res, "Uploaded file is too large. Maximum allowed size is 5MB.", 400);
+    }
+    return errorResponse(res, err.message || "File upload failed.", 400);
+  }
+
   // JWT errors
   if (err.name === "JsonWebTokenError") {
     return errorResponse(res, "Invalid token.", 401);

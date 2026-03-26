@@ -36,6 +36,38 @@ const verifyUser = async (req, res, next) => {
   }
 };
 
+const assignProjectToUser = async (req, res, next) => {
+  try {
+    logger.info(`Admin ${req.user.id} assigning project ${req.params.projectId} to user ${req.params.userId}`);
+    const result = await svc.assignProjectToUser(req.params.projectId, req.params.userId, req.user.id);
+    return successResponse(res, "Project assigned successfully.", result);
+  } catch (err) {
+    if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
+    next(err);
+  }
+};
+
+const unassignProjectFromUser = async (req, res, next) => {
+  try {
+    logger.info(`Admin ${req.user.id} unassigning project ${req.params.projectId} from user ${req.params.userId}`);
+    const result = await svc.unassignProjectFromUser(req.params.projectId, req.params.userId, req.user.id);
+    return successResponse(res, "Project unassigned successfully.", result);
+  } catch (err) {
+    if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
+    next(err);
+  }
+};
+
+const getAssignedProjectIdsByUser = async (req, res, next) => {
+  try {
+    const assignedProjectIds = await svc.getAssignedProjectIdsByUser(req.params.userId);
+    return successResponse(res, "Assigned projects retrieved.", assignedProjectIds);
+  } catch (err) {
+    if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
+    next(err);
+  }
+};
+
 // ─── Projects ─────────────────────────────────────────────────────────────────
 const createProject = async (req, res, next) => {
   try {
@@ -92,6 +124,24 @@ const createTask = async (req, res, next) => {
   }
 };
 
+const uploadTasksExcel = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return errorResponse(res, "Excel file is required. Upload .xlsx or .xls.", 400);
+    }
+
+    const result = await svc.createTasksFromExcel(req.params.projectId, req.file.buffer);
+    const message = result.failedCount
+      ? `Uploaded with partial success. Created ${result.createdCount} of ${result.totalRows} tasks.`
+      : `Successfully created ${result.createdCount} tasks.`;
+
+    return successResponse(res, message, result, 201);
+  } catch (err) {
+    if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
+    next(err);
+  }
+};
+
 const getTasksByProject = async (req, res, next) => {
   try {
     const tasks = await svc.getTasksByProject(req.params.projectId);
@@ -132,9 +182,63 @@ const deleteTask = async (req, res, next) => {
   }
 };
 
+const streamTaskAudio = async (req, res, next) => {
+  try {
+    const task = await svc.getTaskById(req.params.id);
+    if (!task.audio || !task.audio.url) {
+      return errorResponse(res, "No audio found for this task.", 404);
+    }
+
+    const { getAudioStream } = require("../../../services/cloudinary.service");
+    const stream = await getAudioStream(task.audio.url);
+    
+    res.setHeader("Content-Type", task.audio.contentType || "audio/wav");
+    res.setHeader("Content-Disposition", `attachment; filename="${task.taskId}.wav"`);
+    stream.pipe(res);
+  } catch (err) {
+    if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
+    next(err);
+  }
+};
+
+const getTaskSubmissions = async (req, res, next) => {
+  try {
+    const submissions = await svc.getTaskSubmissions(req.params.id);
+    return successResponse(res, "Task submissions retrieved.", submissions);
+  } catch (err) {
+    if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
+    next(err);
+  }
+};
+
+const streamSubmissionAudio = async (req, res, next) => {
+  try {
+    const submission = await svc.getTaskSubmissionById(req.params.id);
+    if (!submission.audio || !submission.audio.url) {
+      return errorResponse(res, "No audio found for this submission.", 404);
+    }
+
+    const { getAudioStream } = require("../../../services/cloudinary.service");
+    const stream = await getAudioStream(submission.audio.url);
+
+    res.setHeader("Content-Type", submission.audio.contentType || "audio/wav");
+    res.setHeader("Content-Disposition", `attachment; filename="submission-${submission._id}.wav"`);
+    stream.pipe(res);
+  } catch (err) {
+    if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
+    next(err);
+  }
+};
+
 module.exports = {
   getDashboard,
   getAllUsers, getPendingUsers, verifyUser,
+  assignProjectToUser,
+  unassignProjectFromUser,
+  getAssignedProjectIdsByUser,
   createProject, getAllProjects, getProjectById, updateProject, deleteProject,
-  createTask, getTasksByProject, getTaskById, updateTask, deleteTask,
+  createTask, uploadTasksExcel, getTasksByProject, getTaskById, updateTask, deleteTask,
+  streamTaskAudio,
+  getTaskSubmissions,
+  streamSubmissionAudio,
 };

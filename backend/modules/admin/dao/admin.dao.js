@@ -1,6 +1,22 @@
 const User = require("../../register/models/user.model");
 const Project = require("../models/project.model");
 const Task = require("../models/task.model");
+const ProjectAssignment = require("../models/projectAssignment.model");
+const TaskSubmission = require("../models/taskSubmission.model");
+
+const getTaskSequence = (taskId = "") => {
+  const match = String(taskId).match(/^TASK-(\d+)$/i);
+  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+};
+
+const sortTasksByTaskId = (tasks = []) => {
+  return [...tasks].sort((a, b) => {
+    const aSeq = getTaskSequence(a.taskId);
+    const bSeq = getTaskSequence(b.taskId);
+    if (aSeq !== bSeq) return aSeq - bSeq;
+    return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+  });
+};
 
 // ─── Users ──────────────────────────────────────────────────────────────────
 
@@ -14,6 +30,14 @@ const getPendingUsers = async () => {
 
 const verifyUser = async (userId) => {
   return User.findByIdAndUpdate(userId, { isVerified: true }, { new: true }).select("-password");
+};
+
+const getUserById = async (userId) => {
+  return User.findById(userId).select("-password");
+};
+
+const getUserByEmail = async (email) => {
+  return User.findOne({ email: String(email).trim().toLowerCase() }).select("-password");
 };
 
 // ─── Projects ────────────────────────────────────────────────────────────────
@@ -43,18 +67,25 @@ const deleteProject = async (id) => {
 
 const createTask = async (data) => {
   const task = new Task(data);
-  return task.save();
+  const savedTask = await task.save();
+  return Task.findById(savedTask._id).populate("assignedTo", "name email");
 };
 
 const addTaskToProject = async (projectId, taskId) => {
   return Project.findByIdAndUpdate(projectId, { $push: { tasks: taskId } }, { new: true });
 };
 
+const addTasksToProject = async (projectId, taskIds) => {
+  return Project.findByIdAndUpdate(projectId, { $push: { tasks: { $each: taskIds } } }, { new: true });
+};
+
 const getTasksByProject = async (projectId) => {
-  return Task.find({ projectId })
+  const tasks = await Task.find({ projectId })
     .select("-audio.data")
     .populate("assignedTo", "name email")
-    .sort({ createdAt: -1 });
+    .lean();
+
+  return sortTasksByTaskId(tasks);
 };
 
 const getTaskById = async (id) => {
@@ -62,7 +93,9 @@ const getTaskById = async (id) => {
 };
 
 const updateTask = async (id, data) => {
-  return Task.findByIdAndUpdate(id, data, { new: true, runValidators: true }).select("-audio.data");
+  return Task.findByIdAndUpdate(id, data, { new: true, runValidators: true })
+    .select("-audio.data")
+    .populate("assignedTo", "name email");
 };
 
 const deleteTask = async (id) => {
@@ -71,6 +104,33 @@ const deleteTask = async (id) => {
 
 const removeTaskFromProject = async (projectId, taskId) => {
   return Project.findByIdAndUpdate(projectId, { $pull: { tasks: taskId } }, { new: true });
+};
+
+const assignProjectToUser = async (projectId, userId, adminId) => {
+  return ProjectAssignment.findOneAndUpdate(
+    { projectId, userId },
+    { $set: { assignedBy: adminId } },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+};
+
+const unassignProjectFromUser = async (projectId, userId) => {
+  return ProjectAssignment.findOneAndDelete({ projectId, userId });
+};
+
+const getAssignedProjectIdsByUser = async (userId) => {
+  const assignments = await ProjectAssignment.find({ userId }).select("projectId").lean();
+  return assignments.map((a) => a.projectId.toString());
+};
+
+const getTaskSubmissions = async (taskId) => {
+  return TaskSubmission.find({ taskId })
+    .populate("userId", "name email")
+    .sort({ updatedAt: -1 });
+};
+
+const getTaskSubmissionById = async (submissionId) => {
+  return TaskSubmission.findById(submissionId).populate("userId", "name email");
 };
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
@@ -101,7 +161,13 @@ const getDashboardStats = async () => {
 
 module.exports = {
   getAllUsers, getPendingUsers, verifyUser,
+  getUserById, getUserByEmail,
   createProject, getAllProjects, getProjectById, updateProject, deleteProject,
-  createTask, addTaskToProject, getTasksByProject, getTaskById, updateTask, deleteTask, removeTaskFromProject,
+  createTask, addTaskToProject, addTasksToProject, getTasksByProject, getTaskById, updateTask, deleteTask, removeTaskFromProject,
+  assignProjectToUser,
+  unassignProjectFromUser,
+  getAssignedProjectIdsByUser,
+  getTaskSubmissions,
+  getTaskSubmissionById,
   getDashboardStats,
 };
