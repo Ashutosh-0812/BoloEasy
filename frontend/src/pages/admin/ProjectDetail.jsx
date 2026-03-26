@@ -37,6 +37,10 @@ export default function ProjectDetail() {
   const [selectedSubmissionId, setSelectedSubmissionId] = useState("");
   const [submissionLoading, setSubmissionLoading] = useState(false);
   const [submissionAudioUrl, setSubmissionAudioUrl] = useState(null);
+  const [submissionsByTaskId, setSubmissionsByTaskId] = useState({});
+  const [selectedSubmissionByTaskId, setSelectedSubmissionByTaskId] = useState({});
+  const [audioUrlByTaskId, setAudioUrlByTaskId] = useState({});
+  const [loadingRowSubmissions, setLoadingRowSubmissions] = useState({});
   const [bulkUploading, setBulkUploading] = useState(false);
   const excelInputRef = useRef(null);
 
@@ -57,6 +61,122 @@ export default function ProjectDetail() {
       URL.revokeObjectURL(submissionAudioUrl);
     }
   }, [submissionAudioUrl]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadTaskSubmissions = async () => {
+      if (!tasks.length) {
+        setSubmissionsByTaskId({});
+        setSelectedSubmissionByTaskId({});
+        setAudioUrlByTaskId((prev) => {
+          Object.values(prev).forEach((url) => {
+            if (url) URL.revokeObjectURL(url);
+          });
+          return {};
+        });
+        return;
+      }
+
+      setLoadingRowSubmissions((prev) => {
+        const next = { ...prev };
+        tasks.forEach((task) => { next[task._id] = true; });
+        return next;
+      });
+
+      setAudioUrlByTaskId((prev) => {
+        Object.values(prev).forEach((url) => {
+          if (url) URL.revokeObjectURL(url);
+        });
+        return {};
+      });
+
+      const entries = await Promise.all(
+        tasks.map(async (task) => {
+          try {
+            const res = await getTaskSubmissions(task._id);
+            return [task._id, res.data.data || []];
+          } catch {
+            return [task._id, []];
+          }
+        })
+      );
+
+      if (ignore) return;
+
+      const nextSubmissions = {};
+      const nextSelectedSubmission = {};
+      entries.forEach(([taskId, submissions]) => {
+        nextSubmissions[taskId] = submissions;
+        if (submissions.length) {
+          nextSelectedSubmission[taskId] = submissions[0]._id;
+        }
+      });
+
+      setSubmissionsByTaskId(nextSubmissions);
+      setSelectedSubmissionByTaskId(nextSelectedSubmission);
+
+      await Promise.all(
+        entries.map(async ([taskId, submissions]) => {
+          const firstSubmission = submissions[0];
+          if (!firstSubmission?.audio?.url && !firstSubmission?.audio?.publicId) return;
+
+          try {
+            const audioResponse = await streamSubmissionAudio(firstSubmission._id);
+            if (ignore) return;
+
+            const blobUrl = URL.createObjectURL(audioResponse.data);
+            setAudioUrlByTaskId((prev) => ({ ...prev, [taskId]: blobUrl }));
+          } catch {
+            // Keep row visible even if audio cannot be streamed.
+          }
+        })
+      );
+
+      if (!ignore) {
+        setLoadingRowSubmissions({});
+      }
+    };
+
+    loadTaskSubmissions();
+
+    return () => {
+      ignore = true;
+    };
+  }, [tasks]);
+
+  const handleRowSubmissionChange = async (taskId, submissionId) => {
+    setSelectedSubmissionByTaskId((prev) => ({ ...prev, [taskId]: submissionId }));
+    setLoadingRowSubmissions((prev) => ({ ...prev, [taskId]: true }));
+
+    const selectedSubmission = (submissionsByTaskId[taskId] || []).find((s) => s._id === submissionId);
+    if (!selectedSubmission?.audio?.url && !selectedSubmission?.audio?.publicId) {
+      setAudioUrlByTaskId((prev) => {
+        const next = { ...prev };
+        if (next[taskId]) URL.revokeObjectURL(next[taskId]);
+        delete next[taskId];
+        return next;
+      });
+      setLoadingRowSubmissions((prev) => ({ ...prev, [taskId]: false }));
+      return;
+    }
+
+    try {
+      const audioResponse = await streamSubmissionAudio(submissionId);
+      const blobUrl = URL.createObjectURL(audioResponse.data);
+
+      setAudioUrlByTaskId((prev) => {
+        const next = { ...prev };
+        if (next[taskId]) URL.revokeObjectURL(next[taskId]);
+        next[taskId] = blobUrl;
+        return next;
+      });
+    } catch {
+      toast.error("Submission selected, but audio could not be loaded.");
+    } finally {
+      setLoadingRowSubmissions((prev) => ({ ...prev, [taskId]: false }));
+    }
+  };
 
   const openCreate = () => { setForm(EMPTY_TASK); setEditing(null); setModal("form"); };
   const openEdit = (t) => {
@@ -275,51 +395,91 @@ export default function ProjectDetail() {
                 <tr className="border-b border-[#d2dad0] bg-primary-50/70">
                   <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[12%]">Task ID</th>
                   <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[15%]">Type</th>
-                  <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[25%]">Text</th>
-                  <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[20%]">Prompt</th>
+                  <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[25%]">Text / User</th>
+                  <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[20%]">Prompt / Audio</th>
                   <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[8%]">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {tasks.map((t) => (
-                  <tr
-                    key={t._id}
-                    className="border-b border-[#d8e0d5] hover:bg-primary-50/60 transition cursor-pointer"
-                    onClick={() => openSubmission(t._id)}
-                    title="View task submission"
-                  >
-                    <td className="px-2 py-3.5 w-[12%]">
-                      <span className="font-mono text-xs text-primary-700 bg-primary-100 px-1.5 py-0.5 rounded block truncate">{t.taskId}</span>
-                    </td>
-                    <td className="px-2 py-3.5 w-[15%]">
-                      <span className="text-xs text-black/80 bg-white border border-[#d1d9ce] px-1.5 py-0.5 rounded block truncate">{t.type}</span>
-                    </td>
-                    <td className="px-2 py-3.5 w-[25%]">
-                      <div className="text-black/80 text-xs truncate" title={t.text}>{t.text}</div>
-                    </td>
-                    <td className="px-2 py-3.5 w-[20%]">
-                      <div className="text-black/65 text-xs truncate" title={t.prompt}>{t.prompt}</div>
-                    </td>
-                    <td className="px-1 py-3.5 w-[8%]">
-                      <div className="flex gap-0.5">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openEdit(t); }}
-                          className="p-1 rounded hover:bg-primary-100 text-black/60 hover:text-black transition"
-                          title="Edit"
-                        >
-                          <Pencil size={12} />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDelete(t._id); }}
-                          className="p-1 rounded hover:bg-red-100 text-black/60 hover:text-red-700 transition"
-                          title="Delete"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {tasks.map((t) => {
+                  const rowSubmissions = submissionsByTaskId[t._id] || [];
+                  const rowSelectedId = selectedSubmissionByTaskId[t._id] || "";
+                  const hasSubmissionView = rowSubmissions.length > 0;
+                  const rowAudioUrl = audioUrlByTaskId[t._id];
+
+                  return (
+                    <tr
+                      key={t._id}
+                      className="border-b border-[#d8e0d5] hover:bg-primary-50/60 transition cursor-pointer"
+                      onClick={() => openSubmission(t._id)}
+                      title="View task submission"
+                    >
+                      <td className="px-2 py-3.5 w-[12%]">
+                        <span className="font-mono text-xs text-primary-700 bg-primary-100 px-1.5 py-0.5 rounded block truncate">{t.taskId}</span>
+                      </td>
+                      <td className="px-2 py-3.5 w-[15%]">
+                        <span className="text-xs text-black/80 bg-white border border-[#d1d9ce] px-1.5 py-0.5 rounded block truncate">{t.type}</span>
+                      </td>
+                      <td className="px-2 py-3.5 w-[25%]">
+                        {hasSubmissionView ? (
+                          <select
+                            className="input !h-8 !py-1 !px-2 !text-xs"
+                            value={rowSelectedId}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              handleRowSubmissionChange(t._id, e.target.value);
+                            }}
+                          >
+                            {rowSubmissions.map((s) => (
+                              <option key={s._id} value={s._id}>
+                                {s.userId?.name || "Unknown user"} ({s.userId?.email || "no-email"})
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div className="text-black/80 text-xs truncate" title={t.text}>{t.text}</div>
+                        )}
+                      </td>
+                      <td className="px-2 py-3.5 w-[20%]">
+                        {hasSubmissionView ? (
+                          rowAudioUrl ? (
+                            <audio
+                              controls
+                              src={rowAudioUrl}
+                              className="w-full h-8"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : (
+                            <div className="text-black/60 text-xs">
+                              {loadingRowSubmissions[t._id] ? "Loading audio..." : "No audio for selected user"}
+                            </div>
+                          )
+                        ) : (
+                          <div className="text-black/65 text-xs truncate" title={t.prompt}>{t.prompt}</div>
+                        )}
+                      </td>
+                      <td className="px-1 py-3.5 w-[8%]">
+                        <div className="flex gap-0.5">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openEdit(t); }}
+                            className="p-1 rounded hover:bg-primary-100 text-black/60 hover:text-black transition"
+                            title="Edit"
+                          >
+                            <Pencil size={12} />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDelete(t._id); }}
+                            className="p-1 rounded hover:bg-red-100 text-black/60 hover:text-red-700 transition"
+                            title="Delete"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {!tasks.length && (
                   <tr>
                     <td colSpan={7} className="px-4 py-12 text-center text-black/60">

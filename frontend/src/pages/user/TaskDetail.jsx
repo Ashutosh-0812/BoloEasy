@@ -148,6 +148,20 @@ export default function TaskDetail() {
     try {
       const file = new File([audioBlob], `${task.taskId}.wav`, { type: "audio/wav" });
       await uploadAudio(id, file);
+
+      const tasksRes = await getProjectTasks(task.projectId);
+      const latestTasks = tasksRes.data.data.tasks || [];
+      setProjectTasks(latestTasks);
+
+      const currentIndex = latestTasks.findIndex((t) => t._id === id);
+      const upcomingTask = currentIndex >= 0 ? latestTasks[currentIndex + 1] : null;
+
+      if (upcomingTask?._id) {
+        toast.success("Audio submitted! Moving to next task.");
+        navigate(`/user/tasks/${upcomingTask._id}`);
+        return;
+      }
+
       toast.success("Audio submitted successfully!");
       await fetchTask(id);
     } catch (err) {

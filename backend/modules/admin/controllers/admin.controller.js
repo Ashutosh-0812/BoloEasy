@@ -47,6 +47,17 @@ const assignProjectToUser = async (req, res, next) => {
   }
 };
 
+const unassignProjectFromUser = async (req, res, next) => {
+  try {
+    logger.info(`Admin ${req.user.id} unassigning project ${req.params.projectId} from user ${req.params.userId}`);
+    const result = await svc.unassignProjectFromUser(req.params.projectId, req.params.userId, req.user.id);
+    return successResponse(res, "Project unassigned successfully.", result);
+  } catch (err) {
+    if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
+    next(err);
+  }
+};
+
 const getAssignedProjectIdsByUser = async (req, res, next) => {
   try {
     const assignedProjectIds = await svc.getAssignedProjectIdsByUser(req.params.userId);
@@ -223,6 +234,7 @@ module.exports = {
   getDashboard,
   getAllUsers, getPendingUsers, verifyUser,
   assignProjectToUser,
+  unassignProjectFromUser,
   getAssignedProjectIdsByUser,
   createProject, getAllProjects, getProjectById, updateProject, deleteProject,
   createTask, uploadTasksExcel, getTasksByProject, getTaskById, updateTask, deleteTask,

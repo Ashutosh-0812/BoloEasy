@@ -4,6 +4,20 @@ const Task = require("../models/task.model");
 const ProjectAssignment = require("../models/projectAssignment.model");
 const TaskSubmission = require("../models/taskSubmission.model");
 
+const getTaskSequence = (taskId = "") => {
+  const match = String(taskId).match(/^TASK-(\d+)$/i);
+  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+};
+
+const sortTasksByTaskId = (tasks = []) => {
+  return [...tasks].sort((a, b) => {
+    const aSeq = getTaskSequence(a.taskId);
+    const bSeq = getTaskSequence(b.taskId);
+    if (aSeq !== bSeq) return aSeq - bSeq;
+    return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+  });
+};
+
 // ─── Users ──────────────────────────────────────────────────────────────────
 
 const getAllUsers = async () => {
@@ -66,10 +80,12 @@ const addTasksToProject = async (projectId, taskIds) => {
 };
 
 const getTasksByProject = async (projectId) => {
-  return Task.find({ projectId })
+  const tasks = await Task.find({ projectId })
     .select("-audio.data")
     .populate("assignedTo", "name email")
-    .sort({ createdAt: -1 });
+    .lean();
+
+  return sortTasksByTaskId(tasks);
 };
 
 const getTaskById = async (id) => {
@@ -96,6 +112,10 @@ const assignProjectToUser = async (projectId, userId, adminId) => {
     { $set: { assignedBy: adminId } },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
+};
+
+const unassignProjectFromUser = async (projectId, userId) => {
+  return ProjectAssignment.findOneAndDelete({ projectId, userId });
 };
 
 const getAssignedProjectIdsByUser = async (userId) => {
@@ -145,6 +165,7 @@ module.exports = {
   createProject, getAllProjects, getProjectById, updateProject, deleteProject,
   createTask, addTaskToProject, addTasksToProject, getTasksByProject, getTaskById, updateTask, deleteTask, removeTaskFromProject,
   assignProjectToUser,
+  unassignProjectFromUser,
   getAssignedProjectIdsByUser,
   getTaskSubmissions,
   getTaskSubmissionById,

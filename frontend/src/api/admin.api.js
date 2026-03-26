@@ -10,6 +10,8 @@ export const verifyUser = (id) => api.patch(`/admin/users/${id}/verify`);
 export const getAssignedProjectIdsByUser = (userId) => api.get(`/admin/users/${userId}/assigned-projects`);
 export const assignProjectToUser = (projectId, userId) =>
 	api.patch(`/admin/projects/${projectId}/assign/${userId}`);
+export const unassignProjectFromUser = (projectId, userId) =>
+	api.delete(`/admin/projects/${projectId}/assign/${userId}`);
 
 // Projects
 export const createProject = (data) => api.post("/admin/projects", data);

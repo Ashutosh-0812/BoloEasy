@@ -55,6 +55,20 @@ const toText = (value) => {
   return String(value).trim();
 };
 
+const getTaskSequence = (taskId = "") => {
+  const match = String(taskId).match(/^TASK-(\d+)$/i);
+  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+};
+
+const sortTasksByTaskId = (tasks = []) => {
+  return [...tasks].sort((a, b) => {
+    const aSeq = getTaskSequence(a.taskId);
+    const bSeq = getTaskSequence(b.taskId);
+    if (aSeq !== bSeq) return aSeq - bSeq;
+    return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+  });
+};
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 const getDashboard = async () => dao.getDashboardStats();
 
@@ -113,6 +127,40 @@ const assignProjectToUser = async (projectId, userId, adminId) => {
   };
 };
 
+const unassignProjectFromUser = async (projectId, userId, adminId) => {
+  const [project, user] = await Promise.all([
+    dao.getProjectById(projectId),
+    dao.getUserById(userId),
+  ]);
+
+  if (!project) {
+    const err = new Error("Project not found.");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (!user) {
+    const err = new Error("User not found.");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const removed = await dao.unassignProjectFromUser(projectId, userId);
+  if (!removed) {
+    const err = new Error("Project is not assigned to this user.");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  logger.info(`Project ${projectId} unassigned from user ${userId} by admin ${adminId}.`);
+
+  return {
+    projectId,
+    userId,
+    assignment: "removed",
+  };
+};
+
 const getAssignedProjectIdsByUser = async (userId) => {
   const user = await dao.getUserById(userId);
   if (!user) {
@@ -160,6 +208,9 @@ const getProjectById = async (id) => {
     const err = new Error("Project not found.");
     err.statusCode = 404;
     throw err;
+  }
+  if (Array.isArray(project.tasks)) {
+    project.tasks = sortTasksByTaskId(project.tasks);
   }
   return project;
 };
@@ -379,6 +430,7 @@ module.exports = {
   getDashboard,
   getAllUsers, getPendingUsers, verifyUser,
   assignProjectToUser,
+  unassignProjectFromUser,
   getAssignedProjectIdsByUser,
   getTaskSubmissions,
   getTaskSubmissionById,

@@ -7,6 +7,7 @@ import {
   getAllProjects,
   getAssignedProjectIdsByUser,
   assignProjectToUser,
+  unassignProjectFromUser,
 } from "../../api/admin.api";
 import { CheckCircle, Clock, ShieldCheck, FolderUp } from "lucide-react";
 import { PageSpinner } from "../../components/ui/Spinner";
@@ -19,6 +20,7 @@ export default function AdminUsers() {
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [verifying, setVerifying] = useState(null);
   const [assigning, setAssigning] = useState(false);
+  const [unassigningProjectId, setUnassigningProjectId] = useState(null);
   const [assignModalUser, setAssignModalUser] = useState(null);
   const [selectedProjectIds, setSelectedProjectIds] = useState([]);
   const [pendingProjectId, setPendingProjectId] = useState("");
@@ -88,11 +90,14 @@ export default function AdminUsers() {
     setPendingProjectId("");
     setAssignedProjectIds([]);
     setLoadingAssignedProjects(false);
+    setUnassigningProjectId(null);
   };
 
-  const availableProjects = projects.filter(
+  const selectableProjects = projects.filter(
     (p) => !assignedProjectIds.includes(p._id) && !selectedProjectIds.includes(p._id)
   );
+
+  const assignedProjects = projects.filter((p) => assignedProjectIds.includes(p._id));
 
   const addPendingProject = () => {
     if (!pendingProjectId) return;
@@ -102,6 +107,23 @@ export default function AdminUsers() {
 
   const removeSelectedProject = (projectId) => {
     setSelectedProjectIds((prev) => prev.filter((id) => id !== projectId));
+  };
+
+  const handleUnassignProject = async (projectId) => {
+    if (!assignModalUser?._id) return;
+
+    setUnassigningProjectId(projectId);
+    try {
+      await unassignProjectFromUser(projectId, assignModalUser._id);
+      setAssignedProjectIds((prev) => prev.filter((id) => id !== projectId));
+
+      const project = projects.find((p) => p._id === projectId);
+      toast.success(`${project?.name || "Project"} unassigned`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to unassign project");
+    } finally {
+      setUnassigningProjectId(null);
+    }
   };
 
   const handleProjectPickerKeyDown = (e) => {
@@ -253,12 +275,22 @@ export default function AdminUsers() {
                   onChange={(e) => setPendingProjectId(e.target.value)}
                   onKeyDown={handleProjectPickerKeyDown}
                   className="input"
-                  disabled={loadingProjects || loadingAssignedProjects || assigning || availableProjects.length === 0}
+                  disabled={loadingProjects || loadingAssignedProjects || assigning || selectableProjects.length === 0}
                 >
                   <option value="">Select project</option>
-                  {availableProjects.map((p) => (
-                    <option key={p._id} value={p._id}>{p.name}</option>
-                  ))}
+                  {projects.map((p) => {
+                    const isAssigned = assignedProjectIds.includes(p._id);
+                    const isSelected = selectedProjectIds.includes(p._id);
+                    const isDisabled = isAssigned || isSelected;
+
+                    return (
+                      <option key={p._id} value={p._id} disabled={isDisabled}>
+                        {p.name}
+                        {isAssigned ? " (Already assigned)" : ""}
+                        {isSelected ? " (Selected)" : ""}
+                      </option>
+                    );
+                  })}
                 </select>
                 <button
                   type="button"
@@ -271,7 +303,7 @@ export default function AdminUsers() {
               </div>
               <p className="text-xs text-primary-400 mt-1">Select a project and press Enter to add it as a tag.</p>
 
-              {!loadingProjects && !loadingAssignedProjects && projects.length > 0 && availableProjects.length === 0 && (
+              {!loadingProjects && !loadingAssignedProjects && projects.length > 0 && selectableProjects.length === 0 && (
                 <p className="text-xs text-primary-400 mt-1">All projects are already assigned to this user.</p>
               )}
 
@@ -297,6 +329,25 @@ export default function AdminUsers() {
                     </span>
                   );
                 })}
+
+                {assignedProjects.map((project) => (
+                  <span
+                    key={project._id}
+                    className="inline-flex items-center gap-1 rounded-full bg-primary-100 text-primary-700 px-2.5 py-1 text-xs"
+                    title="Already assigned project"
+                  >
+                    {project.name}
+                    <button
+                      type="button"
+                      className="font-semibold"
+                      onClick={() => handleUnassignProject(project._id)}
+                      disabled={assigning || unassigningProjectId === project._id}
+                      aria-label={`Remove ${project.name}`}
+                    >
+                      x
+                    </button>
+                  </span>
+                ))}
               </div>
 
               {!loadingProjects && projects.length === 0 && (

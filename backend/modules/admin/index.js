@@ -27,6 +27,11 @@ router.patch(
   [validateObjectId("projectId"), validateObjectId("userId"), validate],
   ctrl.assignProjectToUser
 );
+router.delete(
+  "/projects/:projectId/assign/:userId",
+  [validateObjectId("projectId"), validateObjectId("userId"), validate],
+  ctrl.unassignProjectFromUser
+);
 router.get(
   "/users/:userId/assigned-projects",
   [validateObjectId("userId"), validate],

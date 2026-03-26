@@ -3,6 +3,20 @@ const Project = require("../../admin/models/project.model");
 const ProjectAssignment = require("../../admin/models/projectAssignment.model");
 const TaskSubmission = require("../../admin/models/taskSubmission.model");
 
+const getTaskSequence = (taskId = "") => {
+  const match = String(taskId).match(/^TASK-(\d+)$/i);
+  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+};
+
+const sortTasksByTaskId = (tasks = []) => {
+  return [...tasks].sort((a, b) => {
+    const aSeq = getTaskSequence(a.taskId);
+    const bSeq = getTaskSequence(b.taskId);
+    if (aSeq !== bSeq) return aSeq - bSeq;
+    return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+  });
+};
+
 const getAssignedProjectIds = async (userId) => {
   const assignments = await ProjectAssignment.find({ userId }).select("projectId").lean();
   return assignments.map((a) => a.projectId);
@@ -13,12 +27,12 @@ const getTasksForUser = async (userId) => {
   if (!projectIds.length) return [];
 
   const [tasks, submissions] = await Promise.all([
-    Task.find({ projectId: { $in: projectIds } }).sort({ createdAt: -1 }).lean(),
+    Task.find({ projectId: { $in: projectIds } }).lean(),
     TaskSubmission.find({ userId, projectId: { $in: projectIds } }).lean(),
   ]);
 
   const byTaskId = new Map(submissions.map((s) => [s.taskId.toString(), s]));
-  return tasks.map((task) => {
+  return sortTasksByTaskId(tasks).map((task) => {
     const submission = byTaskId.get(task._id.toString());
     return {
       ...task,
@@ -88,13 +102,13 @@ const getProjectById = async (projectId) => {
 
 const getTasksForUserByProject = async (userId, projectId) => {
   const [tasks, submissions] = await Promise.all([
-    Task.find({ projectId }).sort({ createdAt: -1 }).lean(),
+    Task.find({ projectId }).lean(),
     TaskSubmission.find({ userId, projectId }).lean(),
   ]);
 
   const byTaskId = new Map(submissions.map((s) => [s.taskId.toString(), s]));
 
-  return tasks.map((task) => {
+  return sortTasksByTaskId(tasks).map((task) => {
     const submission = byTaskId.get(task._id.toString());
     return {
       ...task,
