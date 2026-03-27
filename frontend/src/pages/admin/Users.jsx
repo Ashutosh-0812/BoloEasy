@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AdminLayout from "../../components/layout/AdminLayout";
 import Modal from "../../components/ui/Modal";
+import DataTable from "datatables.net-dt";
+import "datatables.net-dt/css/dataTables.dataTables.css";
 import {
   getAllUsers,
   verifyUser,
@@ -14,6 +16,7 @@ import { PageSpinner } from "../../components/ui/Spinner";
 import toast from "react-hot-toast";
 
 export default function AdminUsers() {
+  const [isDesktop, setIsDesktop] = useState(() => (typeof window !== "undefined" ? window.innerWidth >= 640 : false));
   const [users, setUsers] = useState([]);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,6 +29,8 @@ export default function AdminUsers() {
   const [pendingProjectId, setPendingProjectId] = useState("");
   const [assignedProjectIds, setAssignedProjectIds] = useState([]);
   const [loadingAssignedProjects, setLoadingAssignedProjects] = useState(false);
+  const desktopTableRef = useRef(null);
+  const dataTableInstanceRef = useRef(null);
 
   const fetchUsers = () => {
     setLoading(true);
@@ -36,6 +41,59 @@ export default function AdminUsers() {
   };
 
   useEffect(() => { fetchUsers(); }, []);
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 640);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    const tableElement = desktopTableRef.current;
+
+    if (!isDesktop) {
+      if (dataTableInstanceRef.current) {
+        dataTableInstanceRef.current.destroy();
+        dataTableInstanceRef.current = null;
+      }
+      return undefined;
+    }
+
+    if (loading || !tableElement) return undefined;
+
+    if (dataTableInstanceRef.current) {
+      dataTableInstanceRef.current.destroy();
+      dataTableInstanceRef.current = null;
+    }
+
+    dataTableInstanceRef.current = new DataTable(tableElement, {
+      pageLength: 10,
+      lengthMenu: [10, 25, 50, 100],
+      order: [[0, "asc"]],
+      autoWidth: false,
+      responsive: false,
+      language: {
+        search: "Search:",
+        lengthMenu: "_MENU_ entries per page",
+        paginate: {
+          previous: "Prev",
+          next: "Next",
+        },
+        emptyTable: "No users available",
+      },
+      columnDefs: [
+        { targets: -1, orderable: false, searchable: false },
+      ],
+      dom: '<"dt-toolbar"lf>rt<"dt-footer"ip>',
+    });
+
+    return () => {
+      if (dataTableInstanceRef.current) {
+        dataTableInstanceRef.current.destroy();
+        dataTableInstanceRef.current = null;
+      }
+    };
+  }, [isDesktop, loading, users, verifying]);
 
   const fetchProjects = async () => {
     setLoadingProjects(true);
@@ -197,7 +255,7 @@ export default function AdminUsers() {
       <p className="text-primary-400 text-sm mb-6 sm:mb-8">Manage and verify registered users</p>
 
       {loading ? <PageSpinner /> : (
-        <div className="card p-0 overflow-hidden">
+        <div className="admin-datatable card p-0 overflow-hidden">
           {/* Mobile card list */}
           <div className="sm:hidden divide-y divide-surface-border">
             {users.map((u) => (
@@ -226,7 +284,8 @@ export default function AdminUsers() {
           </div>
 
           {/* Desktop table */}
-          <table className="hidden sm:table w-full text-sm">
+          <div className="hidden sm:block">
+          <table ref={desktopTableRef} className="w-full text-sm display">
             <thead>
               <tr className="border-b border-primary-100 bg-primary-50/30">
                 {["Name", "Email", "Role", "Status", "Joined", "Action"].map((h) => (
@@ -258,6 +317,7 @@ export default function AdminUsers() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
