@@ -71,10 +71,24 @@ const uploadTaskAudio = async (taskId, audioBuffer, userId, fileSize) => {
   return getTaskDetail(taskId, userId);
 };
 
+const skipTask = async (taskId, userId) => {
+  const existing = await getTaskDetail(taskId, userId);
+  await dao.markTaskSkipped(taskId, existing.projectId, userId);
+  return getTaskDetail(taskId, userId);
+};
+
+const flagTaskIssue = async (taskId, userId, note = "") => {
+  const existing = await getTaskDetail(taskId, userId);
+  await dao.reportTaskIssue(taskId, existing.projectId, userId, note);
+  return getTaskDetail(taskId, userId);
+};
+
 module.exports = {
   getMyTasks,
   getMyProjects,
   getProjectTasks,
   getTaskDetail,
   uploadAudio: uploadTaskAudio,
+  skipTask,
+  flagTaskIssue,
 };

@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import UserLayout from "../../components/layout/UserLayout";
-import { getTaskDetail, getProjectTasks, streamAudio, uploadAudio } from "../../api/user.api";
+import { getTaskDetail, getProjectTasks, streamAudio, uploadAudio, flagTaskIssue } from "../../api/user.api";
 import {
-  ChevronLeft, Mic, Square, CheckCircle2, Languages, Play, Pause, SkipBack, SkipForward,
+  ChevronLeft, Mic, CheckCircle2, Languages, Play, Pause, SkipBack, SkipForward, Flag,
 } from "lucide-react";
 import { PageSpinner, Spinner } from "../../components/ui/Spinner";
 import toast from "react-hot-toast";
 
 const statusBadge = (s) => {
   if (s === "completed") return <span className="badge-done">Completed</span>;
+  if (s === "skipped") return <span className="badge-pending">Skipped</span>;
   if (s === "in-progress") return <span className="badge-progress">In Progress</span>;
   return <span className="badge-pending">Pending</span>;
 };
@@ -31,11 +32,21 @@ export default function TaskDetail() {
   const [playing, setPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const [recordingElapsed, setRecordingElapsed] = useState(0);
   const mediaRef = useRef(null);
   const chunksRef = useRef([]);
   const audioRef = useRef(null);
+  const recordingStartedAtRef = useRef(null);
+  const recordingTickerRef = useRef(null);
 
   const [submitting, setSubmitting] = useState(false);
+
+  const refreshProjectTasks = async (projectId) => {
+    const tasksRes = await getProjectTasks(projectId);
+    const latestTasks = tasksRes.data.data.tasks || [];
+    setProjectTasks(latestTasks);
+    return latestTasks;
+  };
 
   const loadRecordedAudio = async (taskId) => {
     try {
@@ -101,10 +112,35 @@ export default function TaskDetail() {
     };
   }, [audioUrl]);
 
+  useEffect(() => {
+    if (recording) {
+      if (!recordingStartedAtRef.current) {
+        recordingStartedAtRef.current = Date.now();
+      }
+
+      recordingTickerRef.current = window.setInterval(() => {
+        const elapsedSeconds = Math.floor((Date.now() - recordingStartedAtRef.current) / 1000);
+        setRecordingElapsed(elapsedSeconds);
+      }, 250);
+    } else if (recordingTickerRef.current) {
+      window.clearInterval(recordingTickerRef.current);
+      recordingTickerRef.current = null;
+    }
+
+    return () => {
+      if (recordingTickerRef.current) {
+        window.clearInterval(recordingTickerRef.current);
+        recordingTickerRef.current = null;
+      }
+    };
+  }, [recording]);
+
   // ─── Recording ───────────────────────────────────────────────────────────────
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setRecordingElapsed(0);
+      recordingStartedAtRef.current = Date.now();
       chunksRef.current = [];
       const mr = new MediaRecorder(stream, { mimeType: "audio/webm" });
       mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
@@ -133,15 +169,25 @@ export default function TaskDetail() {
     setRecording(false);
   };
 
-  const handleUploadAudio = async () => {
+  const renderRecordingWave = () => (
+    <div className="recording-wave" aria-hidden="true">
+      <span className="recording-wave__bar" />
+      <span className="recording-wave__bar" />
+      <span className="recording-wave__bar" />
+      <span className="recording-wave__bar" />
+      <span className="recording-wave__bar" />
+    </div>
+  );
+
+  const submitAudioAndMaybeMove = async ({ moveToNext = true } = {}) => {
     if (recording) {
       toast.error("Stop recording before submitting.");
-      return;
+      return false;
     }
 
     if (!audioBlob) {
       toast.error("Please record audio first.");
-      return;
+      return false;
     }
 
     setSubmitting(true);
@@ -149,23 +195,69 @@ export default function TaskDetail() {
       const file = new File([audioBlob], `${task.taskId}.wav`, { type: "audio/wav" });
       await uploadAudio(id, file);
 
-      const tasksRes = await getProjectTasks(task.projectId);
-      const latestTasks = tasksRes.data.data.tasks || [];
-      setProjectTasks(latestTasks);
+      const latestTasks = await refreshProjectTasks(task.projectId);
 
       const currentIndex = latestTasks.findIndex((t) => t._id === id);
       const upcomingTask = currentIndex >= 0 ? latestTasks[currentIndex + 1] : null;
 
-      if (upcomingTask?._id) {
+      if (moveToNext && upcomingTask?._id) {
         toast.success("Audio submitted! Moving to next task.");
         navigate(`/user/tasks/${upcomingTask._id}`);
-        return;
+        return true;
       }
 
       toast.success("Audio submitted successfully!");
       await fetchTask(id);
+      return true;
     } catch (err) {
       toast.error(err.response?.data?.message || "Submission failed");
+      return false;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRecorderNext = async () => {
+    if (!nextTask) {
+      toast("You are on the last task");
+      return;
+    }
+
+    if (recording) {
+      toast.error("Stop recording before moving to next task.");
+      return;
+    }
+
+    if (audioBlob) {
+      await submitAudioAndMaybeMove({ moveToNext: true });
+      return;
+    }
+
+    if (task.audio?.publicId || task.audio?.url) {
+      navigate(`/user/tasks/${nextTask._id}`);
+      return;
+    }
+
+    toast.error("Please record audio first. Use Skip if you want to continue without submitting.");
+  };
+
+  const handleSkipTask = async () => {
+    if (!nextTask) {
+      toast("You are on the last task");
+      return;
+    }
+
+    navigate(`/user/tasks/${nextTask._id}`);
+  };
+
+  const handleFlagTask = async () => {
+    setSubmitting(true);
+    try {
+      await flagTaskIssue(id);
+      toast.success("Task flagged. Thanks for reporting.");
+      await fetchTask(id, { smooth: true });
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to report task issue");
     } finally {
       setSubmitting(false);
     }
@@ -256,10 +348,19 @@ export default function TaskDetail() {
             </div>
             <button
               type="button"
-              onClick={() => nextTask ? navigate(`/user/tasks/${nextTask._id}`) : toast("You are on the last task")}
-              className="btn-primary text-sm px-4 py-1.5"
+              onClick={handleSkipTask}
+              disabled={submitting || !nextTask}
+              className="btn-secondary text-sm px-4 py-1.5 disabled:opacity-50"
             >
-              Next
+              Skip
+            </button>
+            <button
+              type="button"
+              onClick={handleFlagTask}
+              disabled={submitting}
+              className="btn-secondary text-sm px-4 py-1.5 inline-flex items-center gap-1.5"
+            >
+              <Flag size={14} /> Flag
             </button>
           </div>
 
@@ -313,9 +414,16 @@ export default function TaskDetail() {
         <div className="space-y-4 min-w-0">
           <div className="card">
             <p className="label mb-3">Recording Status</p>
-            <p className="text-sm text-slate-400 mb-3">
-              {recording ? "Recording in progress..." : audioBlob ? "New recording ready to upload." : "Use recorder controls below."}
-            </p>
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <p className="text-sm text-slate-400">
+                {recording ? "Recording in progress..." : audioBlob ? "New recording ready to upload." : "Use recorder controls below."}
+              </p>
+              {recording && (
+                <span className="shrink-0 rounded-md bg-red-100 text-red-700 text-xs font-semibold px-2.5 py-1">
+                  {formatTime(recordingElapsed)}
+                </span>
+              )}
+            </div>
 
             <div className="hidden md:flex items-center justify-between rounded-2xl bg-primary-700 px-5 py-4 mb-4">
               <button
@@ -334,14 +442,14 @@ export default function TaskDetail() {
                 className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition ${recording ? "bg-red-500 animate-pulse" : "bg-white"}`}
                 aria-label={recording ? "Stop recording" : "Start recording"}
               >
-                {recording ? <Square size={22} className="text-white" /> : <Mic size={24} className="text-primary-700" />}
+                {recording ? renderRecordingWave() : <Mic size={24} className="text-primary-700" />}
               </button>
 
               <button
                 type="button"
-                onClick={() => nextTask ? navigate(`/user/tasks/${nextTask._id}`) : toast("You are on the last task")}
+                onClick={handleRecorderNext}
                 className="w-12 h-12 rounded-full bg-white text-primary-700 flex items-center justify-center disabled:opacity-40"
-                disabled={!nextTask}
+                disabled={!nextTask || submitting}
                 aria-label="Next task"
               >
                 <SkipForward size={26} />
@@ -385,11 +493,9 @@ export default function TaskDetail() {
                 </span>
               </div>
 
-            <button onClick={handleUploadAudio} disabled={submitting || !audioBlob || recording}
-              className="btn-primary w-full flex items-center justify-center gap-2 py-2.5">
-              {submitting ? <Spinner size="sm" /> : <CheckCircle2 size={15} />}
-              {submitting ? "Uploading..." : "Upload Recording"}
-            </button>
+            <div className="text-xs text-black/70">
+              Use Next in the recorder controls to auto-submit your recording and move to the next task.
+            </div>
           </div>
         </div>
       </div>
@@ -412,14 +518,14 @@ export default function TaskDetail() {
             className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition ${recording ? "bg-red-500 animate-pulse" : "bg-white"}`}
             aria-label={recording ? "Stop recording" : "Start recording"}
           >
-            {recording ? <Square size={22} className="text-white" /> : <Mic size={24} className="text-primary-700" />}
+            {recording ? renderRecordingWave() : <Mic size={24} className="text-primary-700" />}
           </button>  
 
           <button
             type="button"
-            onClick={() => nextTask ? navigate(`/user/tasks/${nextTask._id}`) : toast("You are on the last task")}
+            onClick={handleRecorderNext}
             className="w-12 h-12 rounded-full bg-white text-primary-700 flex items-center justify-center disabled:opacity-40"
-            disabled={!nextTask}
+            disabled={!nextTask || submitting}
             aria-label="Next task"
           >
             <SkipForward size={28} />

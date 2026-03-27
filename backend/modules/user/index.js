@@ -32,4 +32,10 @@ router.post(
 // GET /api/user/tasks/:id/audio  — stream audio directly from Cloudinary
 router.get("/tasks/:id/audio", [validateObjectId("id"), validate], ctrl.streamAudio);
 
+// POST /api/user/tasks/:id/skip
+router.post("/tasks/:id/skip", [validateObjectId("id"), validate], ctrl.skipTask);
+
+// POST /api/user/tasks/:id/flag
+router.post("/tasks/:id/flag", [validateObjectId("id"), validate], ctrl.flagTaskIssue);
+
 module.exports = router;

@@ -69,15 +69,16 @@ const getProjectsForUser = async (userId) => {
   submissions.forEach((s) => {
     const key = s.projectId.toString();
     if (!statsByProject.has(key)) {
-      statsByProject.set(key, { total: 0, completed: 0, inProgress: 0, pending: 0 });
+      statsByProject.set(key, { total: 0, completed: 0, inProgress: 0, skipped: 0, pending: 0 });
     }
     const stats = statsByProject.get(key);
     if (s.status === "completed") stats.completed += 1;
     else if (s.status === "in-progress") stats.inProgress += 1;
+    else if (s.status === "skipped") stats.skipped += 1;
   });
 
   statsByProject.forEach((stats) => {
-    const done = stats.completed + stats.inProgress;
+    const done = stats.completed + stats.inProgress + stats.skipped;
     stats.pending = Math.max(0, stats.total - done);
   });
 
@@ -87,6 +88,7 @@ const getProjectsForUser = async (userId) => {
       total: 0,
       completed: 0,
       inProgress: 0,
+      skipped: 0,
       pending: 0,
     },
   }));
@@ -150,6 +152,41 @@ const saveAudio = async (taskId, projectId, userId, { publicId, url, fileSizeByt
   );
 };
 
+const markTaskSkipped = async (taskId, projectId, userId) => {
+  return TaskSubmission.findOneAndUpdate(
+    { taskId, userId },
+    {
+      $set: {
+        taskId,
+        projectId,
+        userId,
+        status: "skipped",
+      },
+    },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  );
+};
+
+const reportTaskIssue = async (taskId, projectId, userId, note = "") => {
+  return TaskSubmission.findOneAndUpdate(
+    { taskId, userId },
+    {
+      $set: {
+        taskId,
+        projectId,
+        userId,
+        "reportedIssue.flagged": true,
+        "reportedIssue.note": note,
+        "reportedIssue.reportedAt": new Date(),
+      },
+      $setOnInsert: {
+        status: "pending",
+      },
+    },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  );
+};
+
 module.exports = {
   getTasksForUser,
   getProjectsForUser,
@@ -159,4 +196,6 @@ module.exports = {
   getTaskByIdForUser,
   getTaskSubmissionForUser,
   saveAudio,
+  markTaskSkipped,
+  reportTaskIssue,
 };

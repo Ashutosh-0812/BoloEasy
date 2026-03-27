@@ -16,3 +16,6 @@ export const uploadAudio = (id, file) => {
 export const streamAudio = (id) => api.get(`/user/tasks/${id}/audio`, { 
   responseType: 'blob' 
 });
+
+export const skipTask = (id) => api.post(`/user/tasks/${id}/skip`);
+export const flagTaskIssue = (id, payload = {}) => api.post(`/user/tasks/${id}/flag`, payload);

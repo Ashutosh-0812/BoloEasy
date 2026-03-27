@@ -93,6 +93,33 @@ const streamAudio = async (req, res, next) => {
   }
 };
 
+const skipTask = async (req, res, next) => {
+  try {
+    const task = await userSvc.skipTask(req.params.id, req.user.id);
+    return successResponse(res, "Task skipped.", {
+      taskId: task.taskId,
+      status: task.status,
+    });
+  } catch (err) {
+    if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
+    next(err);
+  }
+};
+
+const flagTaskIssue = async (req, res, next) => {
+  try {
+    const note = String(req.body?.note || "").trim();
+    const task = await userSvc.flagTaskIssue(req.params.id, req.user.id, note);
+    return successResponse(res, "Task issue reported.", {
+      taskId: task.taskId,
+      reportedIssue: task.reportedIssue || { flagged: true },
+    });
+  } catch (err) {
+    if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
+    next(err);
+  }
+};
+
 module.exports = {
   getMyTasks,
   getMyProjects,
@@ -100,4 +127,6 @@ module.exports = {
   getTaskDetail,
   uploadAudio,
   streamAudio,
+  skipTask,
+  flagTaskIssue,
 };

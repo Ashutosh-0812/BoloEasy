@@ -97,6 +97,39 @@
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600;
   }
 
+  .recording-wave {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 22px;
+  }
+
+  .recording-wave__bar {
+    width: 3px;
+    height: 8px;
+    border-radius: 999px;
+    background: #fff;
+    transform-origin: center bottom;
+    animation: recording-wave 1s ease-in-out infinite;
+  }
+
+  .recording-wave__bar:nth-child(1) { animation-delay: 0s; }
+  .recording-wave__bar:nth-child(2) { animation-delay: 0.12s; }
+  .recording-wave__bar:nth-child(3) { animation-delay: 0.24s; }
+  .recording-wave__bar:nth-child(4) { animation-delay: 0.36s; }
+  .recording-wave__bar:nth-child(5) { animation-delay: 0.48s; }
+
+  @keyframes recording-wave {
+    0%, 100% {
+      transform: scaleY(0.45);
+      opacity: 0.6;
+    }
+    50% {
+      transform: scaleY(1.25);
+      opacity: 1;
+    }
+  }
+
   .admin-datatable .dt-toolbar {
     display: flex;
     align-items: center;

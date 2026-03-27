@@ -33,9 +33,14 @@ const taskSubmissionSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "in-progress", "completed"],
+      enum: ["pending", "in-progress", "completed", "skipped"],
       default: "pending",
       index: true,
+    },
+    reportedIssue: {
+      flagged: { type: Boolean, default: false },
+      note: { type: String, default: "" },
+      reportedAt: { type: Date, default: null },
     },
   },
   { timestamps: true }
