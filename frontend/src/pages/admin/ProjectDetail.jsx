@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import AdminLayout from "../../components/layout/AdminLayout";
 import Modal from "../../components/ui/Modal";
+import DataTable from "datatables.net-dt";
+import "datatables.net-dt/css/dataTables.dataTables.css";
 import {
   getProjectById, createTask, updateTask, deleteTask, getAllUsers, getTaskById, getTaskSubmissions, streamSubmissionAudio, uploadTasksExcel
 } from "../../api/admin.api";
@@ -28,6 +30,7 @@ const formatFileSize = (bytes) => {
 
 export default function ProjectDetail() {
   const { id } = useParams();
+  const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 640);
   const [project, setProject] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
@@ -48,6 +51,8 @@ export default function ProjectDetail() {
   const [loadingRowSubmissions, setLoadingRowSubmissions] = useState({});
   const [bulkUploading, setBulkUploading] = useState(false);
   const excelInputRef = useRef(null);
+  const desktopTableRef = useRef(null);
+  const dataTableInstanceRef = useRef(null);
 
   const fetchProject = () => {
     Promise.all([getProjectById(id), getAllUsers()])
@@ -154,6 +159,67 @@ export default function ProjectDetail() {
       ignore = true;
     };
   }, [tasks, activeView]);
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 640);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    const tableElement = desktopTableRef.current;
+    if (!isDesktop) {
+      if (dataTableInstanceRef.current) {
+        dataTableInstanceRef.current.destroy();
+        dataTableInstanceRef.current = null;
+      }
+      return undefined;
+    }
+
+    if (loading || !tableElement) return undefined;
+
+    if (dataTableInstanceRef.current) {
+      dataTableInstanceRef.current.destroy();
+      dataTableInstanceRef.current = null;
+    }
+
+    dataTableInstanceRef.current = new DataTable(tableElement, {
+      pageLength: 10,
+      lengthMenu: [10, 25, 50, 100],
+      order: [[0, "asc"]],
+      autoWidth: false,
+      responsive: false,
+      language: {
+        search: "Search:",
+        lengthMenu: "_MENU_ entries per page",
+        paginate: {
+          previous: "Prev",
+          next: "Next",
+        },
+        emptyTable: "No tasks available",
+      },
+      columnDefs: [
+        { targets: -1, orderable: false, searchable: false },
+      ],
+      dom: '<"dt-toolbar"lf>rt<"dt-footer"ip>',
+    });
+
+    return () => {
+      if (dataTableInstanceRef.current) {
+        dataTableInstanceRef.current.destroy();
+        dataTableInstanceRef.current = null;
+      }
+    };
+  }, [
+    isDesktop,
+    loading,
+    tasks,
+    activeView,
+    submissionsByTaskId,
+    selectedSubmissionByTaskId,
+    audioUrlByTaskId,
+    loadingRowSubmissions,
+  ]);
 
   const handleRowSubmissionChange = async (taskId, submissionId) => {
     setSelectedSubmissionByTaskId((prev) => ({ ...prev, [taskId]: submissionId }));
@@ -336,12 +402,12 @@ export default function ProjectDetail() {
               <h1 className="text-2xl font-bold text-primary-900 mb-1">{project?.name}</h1>
               <p className="text-primary-500 text-sm">{project?.description || "No description"}</p>
             </div>
-            <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-              <div className="inline-flex rounded-lg border border-[#c3cdc0] bg-white p-1">
+            <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end w-full md:w-auto">
+              <div className="inline-flex rounded-lg border border-[#c3cdc0] bg-white p-1 w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => setActiveView(ADMIN_PROJECT_VIEWS.TASKS)}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md border border-transparent transition ${
+                  className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-semibold rounded-md border border-transparent transition ${
                     activeView === ADMIN_PROJECT_VIEWS.TASKS
                       ? "bg-[#dbe7d8] text-black border-[#b9c8b3]"
                       : "bg-transparent text-black hover:bg-[#eef4ec]"
@@ -352,7 +418,7 @@ export default function ProjectDetail() {
                 <button
                   type="button"
                   onClick={() => setActiveView(ADMIN_PROJECT_VIEWS.SUBMISSIONS)}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md border border-transparent transition ${
+                  className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-semibold rounded-md border border-transparent transition ${
                     activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS
                       ? "bg-[#dbe7d8] text-black border-[#b9c8b3]"
                       : "bg-transparent text-black hover:bg-[#eef4ec]"
@@ -371,19 +437,19 @@ export default function ProjectDetail() {
               />
               <button
                 onClick={() => excelInputRef.current?.click()}
-                className="btn-secondary flex items-center gap-2"
+                className="btn-secondary flex items-center justify-center gap-2 w-full sm:w-auto"
                 disabled={bulkUploading}
                 title="Upload Excel with Task Name, Text, language columns (English/Telugu/Hindi...), prompt optional"
               >
                 <Upload size={16} /> {bulkUploading ? "Uploading..." : "Upload Excel"}
               </button>
-              <button onClick={openCreate} className="btn-primary flex items-center gap-2">
+              <button onClick={openCreate} className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto">
                 <Plus size={16} /> Add Task
               </button>
             </div>
           </div>
 
-          <div className="card p-0 overflow-hidden border border-[#c3cdc0] shadow-sm">
+          <div className="admin-datatable card p-0 overflow-hidden border border-[#c3cdc0] shadow-sm">
             {/* Mobile card list */}
             <div className="sm:hidden divide-y divide-[#d2dad0]">
               {tasks.map((t) => (
@@ -464,7 +530,8 @@ export default function ProjectDetail() {
             </div>
 
             {/* Desktop table */}
-            <table className="hidden sm:table w-full text-sm table-fixed">
+            <div className="hidden sm:block">
+            <table ref={desktopTableRef} className="w-full text-sm table-fixed display">
               <thead>
                 <tr className="border-b border-[#d2dad0] bg-primary-50/70">
                   <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[12%]">Task ID</th>
@@ -574,7 +641,7 @@ export default function ProjectDetail() {
                 })}
                 {!tasks.length && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center text-black/60">
+                    <td colSpan={5} className="px-4 py-12 text-center text-black/60">
                       <Mic2 size={32} className="mx-auto mb-2 opacity-30" />
                       No tasks yet. Add your first task.
                     </td>
@@ -582,6 +649,7 @@ export default function ProjectDetail() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </>
       )}

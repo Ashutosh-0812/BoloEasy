@@ -96,4 +96,112 @@
   .badge-user {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600;
   }
+
+  .admin-datatable .dt-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1rem;
+    border-bottom: 1px solid #d2dad0;
+    background: #f6f9f5;
+  }
+
+  .admin-datatable .dt-toolbar .dt-length,
+  .admin-datatable .dt-toolbar .dataTables_length {
+    margin: 0;
+  }
+
+  .admin-datatable .dt-toolbar .dt-search,
+  .admin-datatable .dt-toolbar .dataTables_filter {
+    margin: 0;
+  }
+
+  .admin-datatable .dt-toolbar .dt-search label,
+  .admin-datatable .dt-toolbar .dataTables_filter label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+  }
+
+  .admin-datatable .dt-toolbar select,
+  .admin-datatable .dt-toolbar input {
+    border: 1px solid #c3cdc0;
+    border-radius: 8px;
+    background: #fff;
+    height: 40px;
+    padding: 0 0.75rem;
+    font-size: 0.95rem;
+  }
+
+  .admin-datatable .dt-toolbar input {
+    min-width: 260px;
+  }
+
+  .admin-datatable .dt-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1rem;
+    border-top: 1px solid #d2dad0;
+    background: #fafcf9;
+  }
+
+  .admin-datatable .dt-footer .dt-info,
+  .admin-datatable .dt-footer .dataTables_info {
+    font-size: 0.875rem;
+    opacity: 0.8;
+  }
+
+  .admin-datatable .dt-footer .dt-paging,
+  .admin-datatable .dt-footer .dataTables_paginate {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .admin-datatable .dt-footer .dt-paging-button,
+  .admin-datatable .dt-footer .paginate_button {
+    border: 1px solid #c3cdc0 !important;
+    border-radius: 8px !important;
+    background: #fff !important;
+    padding: 0.35rem 0.6rem !important;
+    margin: 0 !important;
+    min-width: 2rem;
+    line-height: 1.2;
+  }
+
+  .admin-datatable .dt-footer .dt-paging-button.current,
+  .admin-datatable .dt-footer .paginate_button.current {
+    background: #dbe7d8 !important;
+    border-color: #b9c8b3 !important;
+    font-weight: 700;
+  }
+
+  .admin-datatable table.dataTable > thead > tr > th {
+    vertical-align: middle;
+  }
+
+  .admin-datatable table.dataTable tbody td {
+    vertical-align: middle;
+  }
+
+  @media (max-width: 900px) {
+    .admin-datatable .dt-toolbar,
+    .admin-datatable .dt-footer {
+      flex-wrap: wrap;
+    }
+
+    .admin-datatable .dt-toolbar .dt-search,
+    .admin-datatable .dt-toolbar .dataTables_filter {
+      width: 100%;
+    }
+
+    .admin-datatable .dt-toolbar input {
+      width: 100%;
+      min-width: 0;
+    }
+  }
 }
