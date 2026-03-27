@@ -413,7 +413,7 @@ export default function TaskDetail() {
             aria-label={recording ? "Stop recording" : "Start recording"}
           >
             {recording ? <Square size={22} className="text-white" /> : <Mic size={24} className="text-primary-700" />}
-          </button>
+          </button>  
 
           <button
             type="button"

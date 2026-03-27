@@ -11,6 +11,10 @@ import toast from "react-hot-toast";
 
 const TASK_TYPES = ["NE Read", "NE Variance", "NE Sentence"];
 const EMPTY_TASK = { type: TASK_TYPES[0], text: "", prompt: "", assignedTo: "" };
+const ADMIN_PROJECT_VIEWS = {
+  TASKS: "tasks",
+  SUBMISSIONS: "submissions",
+};
 
 const formatDateTime = (value) => {
   if (!value) return "Not available";
@@ -28,6 +32,7 @@ export default function ProjectDetail() {
   const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeView, setActiveView] = useState(ADMIN_PROJECT_VIEWS.TASKS);
   const [modal, setModal] = useState(null);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_TASK);
@@ -66,6 +71,11 @@ export default function ProjectDetail() {
     let ignore = false;
 
     const loadTaskSubmissions = async () => {
+      if (activeView !== ADMIN_PROJECT_VIEWS.SUBMISSIONS) {
+        setLoadingRowSubmissions({});
+        return;
+      }
+
       if (!tasks.length) {
         setSubmissionsByTaskId({});
         setSelectedSubmissionByTaskId({});
@@ -143,7 +153,7 @@ export default function ProjectDetail() {
     return () => {
       ignore = true;
     };
-  }, [tasks]);
+  }, [tasks, activeView]);
 
   const handleRowSubmissionChange = async (taskId, submissionId) => {
     setSelectedSubmissionByTaskId((prev) => ({ ...prev, [taskId]: submissionId }));
@@ -326,7 +336,32 @@ export default function ProjectDetail() {
               <h1 className="text-2xl font-bold text-primary-900 mb-1">{project?.name}</h1>
               <p className="text-primary-500 text-sm">{project?.description || "No description"}</p>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+              <div className="inline-flex rounded-lg border border-[#c3cdc0] bg-white p-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveView(ADMIN_PROJECT_VIEWS.TASKS)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md border border-transparent transition ${
+                    activeView === ADMIN_PROJECT_VIEWS.TASKS
+                      ? "bg-[#dbe7d8] text-black border-[#b9c8b3]"
+                      : "bg-transparent text-black hover:bg-[#eef4ec]"
+                  }`}
+                >
+                  Tasks
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveView(ADMIN_PROJECT_VIEWS.SUBMISSIONS)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md border border-transparent transition ${
+                    activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS
+                      ? "bg-[#dbe7d8] text-black border-[#b9c8b3]"
+                      : "bg-transparent text-black hover:bg-[#eef4ec]"
+                  }`}
+                >
+                  Submissions
+                </button>
+              </div>
+
               <input
                 ref={excelInputRef}
                 type="file"
@@ -352,32 +387,71 @@ export default function ProjectDetail() {
             {/* Mobile card list */}
             <div className="sm:hidden divide-y divide-[#d2dad0]">
               {tasks.map((t) => (
-                <div
-                  key={t._id}
-                  className="p-4 space-y-2 cursor-pointer hover:bg-primary-50/70 transition"
-                  onClick={() => openSubmission(t._id)}
-                >
+                <div key={t._id} className="p-4 space-y-2 hover:bg-primary-50/70 transition">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-xs text-primary-700 bg-primary-100 px-2 py-0.5 rounded truncate">{t.taskId}</span>
+                    <button
+                      type="button"
+                      onClick={() => openSubmission(t._id)}
+                      className="text-[11px] text-primary-800 hover:text-primary-900"
+                    >
+                      Details
+                    </button>
                   </div>
                   <p className="text-xs text-black/80 bg-white border border-[#d1d9ce] px-2 py-0.5 rounded w-fit">{t.type}</p>
-                  <p className="text-xs text-black/80 line-clamp-2">{t.text}</p>
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs text-black/65 truncate">{t.prompt}</p>
-                    <div className="flex gap-1 shrink-0">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); openEdit(t); }}
-                        className="p-1.5 rounded hover:bg-primary-100 text-black/60 hover:text-black transition"
-                      >
-                        <Pencil size={13} />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDelete(t._id); }}
-                        className="p-1.5 rounded hover:bg-red-100 text-black/60 hover:text-red-700 transition"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
+
+                  {activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS ? (
+                    (() => {
+                      const rowSubmissions = submissionsByTaskId[t._id] || [];
+                      const rowSelectedId = selectedSubmissionByTaskId[t._id] || "";
+                      const rowAudioUrl = audioUrlByTaskId[t._id];
+
+                      return rowSubmissions.length ? (
+                        <>
+                          <select
+                            className="input !h-8 !py-1 !px-2 !text-xs"
+                            value={rowSelectedId}
+                            onChange={(e) => handleRowSubmissionChange(t._id, e.target.value)}
+                          >
+                            {rowSubmissions.map((s) => (
+                              <option key={s._id} value={s._id}>
+                                {s.userId?.name || "Unknown user"} ({s.userId?.email || "no-email"})
+                              </option>
+                            ))}
+                          </select>
+
+                          {rowAudioUrl ? (
+                            <audio controls src={rowAudioUrl} className="w-full h-8" />
+                          ) : (
+                            <p className="text-xs text-black/60">
+                              {loadingRowSubmissions[t._id] ? "Loading audio..." : "No audio for selected user"}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-xs text-black/60">No submissions yet for this task.</p>
+                      );
+                    })()
+                  ) : (
+                    <>
+                      <p className="text-xs text-black/80 line-clamp-2">{t.text}</p>
+                      <p className="text-xs text-black/65 truncate">{t.prompt}</p>
+                    </>
+                  )}
+
+                  <div className="flex justify-end gap-1 shrink-0">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openEdit(t); }}
+                      className="p-1.5 rounded hover:bg-primary-100 text-black/60 hover:text-black transition"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(t._id); }}
+                      className="p-1.5 rounded hover:bg-red-100 text-black/60 hover:text-red-700 transition"
+                    >
+                      <Trash2 size={13} />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -395,8 +469,12 @@ export default function ProjectDetail() {
                 <tr className="border-b border-[#d2dad0] bg-primary-50/70">
                   <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[12%]">Task ID</th>
                   <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[15%]">Type</th>
-                  <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[25%]">Text / User</th>
-                  <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[20%]">Prompt / Audio</th>
+                  <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[25%]">
+                    {activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS ? "Submission User" : "Text"}
+                  </th>
+                  <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[20%]">
+                    {activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS ? "Submission Audio" : "Prompt"}
+                  </th>
                   <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[8%]">Action</th>
                 </tr>
               </thead>
@@ -410,9 +488,15 @@ export default function ProjectDetail() {
                   return (
                     <tr
                       key={t._id}
-                      className="border-b border-[#d8e0d5] hover:bg-primary-50/60 transition cursor-pointer"
-                      onClick={() => openSubmission(t._id)}
-                      title="View task submission"
+                      className={`border-b border-[#d8e0d5] hover:bg-primary-50/60 transition ${
+                        activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS ? "cursor-pointer" : ""
+                      }`}
+                      onClick={() => {
+                        if (activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS) {
+                          openSubmission(t._id);
+                        }
+                      }}
+                      title={activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS ? "View task submission" : "Task details"}
                     >
                       <td className="px-2 py-3.5 w-[12%]">
                         <span className="font-mono text-xs text-primary-700 bg-primary-100 px-1.5 py-0.5 rounded block truncate">{t.taskId}</span>
@@ -421,39 +505,47 @@ export default function ProjectDetail() {
                         <span className="text-xs text-black/80 bg-white border border-[#d1d9ce] px-1.5 py-0.5 rounded block truncate">{t.type}</span>
                       </td>
                       <td className="px-2 py-3.5 w-[25%]">
-                        {hasSubmissionView ? (
-                          <select
-                            className="input !h-8 !py-1 !px-2 !text-xs"
-                            value={rowSelectedId}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              handleRowSubmissionChange(t._id, e.target.value);
-                            }}
-                          >
-                            {rowSubmissions.map((s) => (
-                              <option key={s._id} value={s._id}>
-                                {s.userId?.name || "Unknown user"} ({s.userId?.email || "no-email"})
-                              </option>
-                            ))}
-                          </select>
+                        {activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS ? (
+                          hasSubmissionView ? (
+                            <select
+                              className="input !h-8 !py-1 !px-2 !text-xs"
+                              value={rowSelectedId}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                handleRowSubmissionChange(t._id, e.target.value);
+                              }}
+                            >
+                              {rowSubmissions.map((s) => (
+                                <option key={s._id} value={s._id}>
+                                  {s.userId?.name || "Unknown user"} ({s.userId?.email || "no-email"})
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <div className="text-black/60 text-xs">No submissions yet</div>
+                          )
                         ) : (
                           <div className="text-black/80 text-xs truncate" title={t.text}>{t.text}</div>
                         )}
                       </td>
                       <td className="px-2 py-3.5 w-[20%]">
-                        {hasSubmissionView ? (
-                          rowAudioUrl ? (
-                            <audio
-                              controls
-                              src={rowAudioUrl}
-                              className="w-full h-8"
-                              onClick={(e) => e.stopPropagation()}
-                            />
+                        {activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS ? (
+                          hasSubmissionView ? (
+                            rowAudioUrl ? (
+                              <audio
+                                controls
+                                src={rowAudioUrl}
+                                className="w-full h-8"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            ) : (
+                              <div className="text-black/60 text-xs">
+                                {loadingRowSubmissions[t._id] ? "Loading audio..." : "No audio for selected user"}
+                              </div>
+                            )
                           ) : (
-                            <div className="text-black/60 text-xs">
-                              {loadingRowSubmissions[t._id] ? "Loading audio..." : "No audio for selected user"}
-                            </div>
+                            <div className="text-black/60 text-xs">No audio</div>
                           )
                         ) : (
                           <div className="text-black/65 text-xs truncate" title={t.prompt}>{t.prompt}</div>
