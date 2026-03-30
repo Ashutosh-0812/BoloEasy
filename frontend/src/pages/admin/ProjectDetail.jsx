@@ -16,6 +16,7 @@ const EMPTY_TASK = { type: TASK_TYPES[0], text: "", prompt: "", assignedTo: "" }
 const ADMIN_PROJECT_VIEWS = {
   TASKS: "tasks",
   SUBMISSIONS: "submissions",
+  FLAGS: "flags",
 };
 
 const formatDateTime = (value) => {
@@ -47,6 +48,7 @@ export default function ProjectDetail() {
   const [submissionAudioUrl, setSubmissionAudioUrl] = useState(null);
   const [submissionsByTaskId, setSubmissionsByTaskId] = useState({});
   const [selectedSubmissionByTaskId, setSelectedSubmissionByTaskId] = useState({});
+  const [selectedFlagByTaskId, setSelectedFlagByTaskId] = useState({});
   const [audioUrlByTaskId, setAudioUrlByTaskId] = useState({});
   const [loadingRowSubmissions, setLoadingRowSubmissions] = useState({});
   const [bulkUploading, setBulkUploading] = useState(false);
@@ -76,7 +78,7 @@ export default function ProjectDetail() {
     let ignore = false;
 
     const loadTaskSubmissions = async () => {
-      if (activeView !== ADMIN_PROJECT_VIEWS.SUBMISSIONS) {
+      if (activeView !== ADMIN_PROJECT_VIEWS.SUBMISSIONS && activeView !== ADMIN_PROJECT_VIEWS.FLAGS) {
         setLoadingRowSubmissions({});
         return;
       }
@@ -121,15 +123,22 @@ export default function ProjectDetail() {
 
       const nextSubmissions = {};
       const nextSelectedSubmission = {};
+      const nextSelectedFlag = {};
       entries.forEach(([taskId, submissions]) => {
         nextSubmissions[taskId] = submissions;
         if (submissions.length) {
           nextSelectedSubmission[taskId] = submissions[0]._id;
         }
+
+        const flaggedSubmissions = submissions.filter((submission) => submission.reportedIssue?.flagged);
+        if (flaggedSubmissions.length) {
+          nextSelectedFlag[taskId] = flaggedSubmissions[0]._id;
+        }
       });
 
       setSubmissionsByTaskId(nextSubmissions);
       setSelectedSubmissionByTaskId(nextSelectedSubmission);
+      setSelectedFlagByTaskId(nextSelectedFlag);
 
       await Promise.all(
         entries.map(async ([taskId, submissions]) => {
@@ -217,6 +226,7 @@ export default function ProjectDetail() {
     activeView,
     submissionsByTaskId,
     selectedSubmissionByTaskId,
+    selectedFlagByTaskId,
     audioUrlByTaskId,
     loadingRowSubmissions,
   ]);
@@ -332,6 +342,11 @@ export default function ProjectDetail() {
 
   const selectedSubmission = taskSubmissions.find((s) => s._id === selectedSubmissionId) || null;
 
+  const getFlaggedSubmissionsForTask = (taskId) => {
+    const rowSubmissions = submissionsByTaskId[taskId] || [];
+    return rowSubmissions.filter((submission) => submission.reportedIssue?.flagged);
+  };
+
   const handleSave = async (e) => {
     e.preventDefault(); setSaving(true);
     try {
@@ -426,6 +441,17 @@ export default function ProjectDetail() {
                 >
                   Submissions
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveView(ADMIN_PROJECT_VIEWS.FLAGS)}
+                  className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-semibold rounded-md border border-transparent transition ${
+                    activeView === ADMIN_PROJECT_VIEWS.FLAGS
+                      ? "bg-[#dbe7d8] text-black border-[#b9c8b3]"
+                      : "bg-transparent text-black hover:bg-[#eef4ec]"
+                  }`}
+                >
+                  Flags
+                </button>
               </div>
 
               <input
@@ -498,6 +524,37 @@ export default function ProjectDetail() {
                         <p className="text-xs text-black/60">No submissions yet for this task.</p>
                       );
                     })()
+                  ) : activeView === ADMIN_PROJECT_VIEWS.FLAGS ? (
+                    (() => {
+                      const rowFlaggedSubmissions = getFlaggedSubmissionsForTask(t._id);
+                      const selectedFlagSubmissionId = selectedFlagByTaskId[t._id] || rowFlaggedSubmissions[0]?._id || "";
+                      const selectedFlagSubmission = rowFlaggedSubmissions.find((s) => s._id === selectedFlagSubmissionId) || null;
+
+                      return rowFlaggedSubmissions.length ? (
+                        <>
+                          <select
+                            className="input !h-8 !py-1 !px-2 !text-xs"
+                            value={selectedFlagSubmissionId}
+                            onChange={(e) => setSelectedFlagByTaskId((prev) => ({ ...prev, [t._id]: e.target.value }))}
+                          >
+                            {rowFlaggedSubmissions.map((s) => (
+                              <option key={s._id} value={s._id}>
+                                {s.userId?.name || "Unknown user"} ({s.userId?.email || "no-email"})
+                              </option>
+                            ))}
+                          </select>
+
+                          <p className="text-xs text-black/80 whitespace-pre-wrap break-all">
+                            {selectedFlagSubmission?.reportedIssue?.note || "No comment provided"}
+                          </p>
+                          <p className="text-[11px] text-black/55">
+                            Flagged at {formatDateTime(selectedFlagSubmission?.reportedIssue?.reportedAt)}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-xs text-black/60">No flags yet for this task.</p>
+                      );
+                    })()
                   ) : (
                     <>
                       <p className="text-xs text-black/80 line-clamp-2">{t.text}</p>
@@ -537,10 +594,18 @@ export default function ProjectDetail() {
                   <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[12%]">Task ID</th>
                   <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[15%]">Type</th>
                   <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[25%]">
-                    {activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS ? "Submission User" : "Text"}
+                    {activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS
+                      ? "Submission User"
+                      : activeView === ADMIN_PROJECT_VIEWS.FLAGS
+                        ? "Flagged By"
+                        : "Text"}
                   </th>
                   <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[20%]">
-                    {activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS ? "Submission Audio" : "Prompt"}
+                    {activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS
+                      ? "Submission Audio"
+                      : activeView === ADMIN_PROJECT_VIEWS.FLAGS
+                        ? "Comment"
+                        : "Prompt"}
                   </th>
                   <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[8%]">Action</th>
                 </tr>
@@ -550,20 +615,23 @@ export default function ProjectDetail() {
                   const rowSubmissions = submissionsByTaskId[t._id] || [];
                   const rowSelectedId = selectedSubmissionByTaskId[t._id] || "";
                   const hasSubmissionView = rowSubmissions.length > 0;
+                  const rowFlaggedSubmissions = rowSubmissions.filter((submission) => submission.reportedIssue?.flagged);
+                  const rowSelectedFlagId = selectedFlagByTaskId[t._id] || rowFlaggedSubmissions[0]?._id || "";
+                  const selectedFlagSubmission = rowFlaggedSubmissions.find((submission) => submission._id === rowSelectedFlagId) || null;
                   const rowAudioUrl = audioUrlByTaskId[t._id];
 
                   return (
                     <tr
                       key={t._id}
                       className={`border-b border-[#d8e0d5] hover:bg-primary-50/60 transition ${
-                        activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS ? "cursor-pointer" : ""
+                        activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS || activeView === ADMIN_PROJECT_VIEWS.FLAGS ? "cursor-pointer" : ""
                       }`}
                       onClick={() => {
-                        if (activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS) {
+                        if (activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS || activeView === ADMIN_PROJECT_VIEWS.FLAGS) {
                           openSubmission(t._id);
                         }
                       }}
-                      title={activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS ? "View task submission" : "Task details"}
+                      title={activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS || activeView === ADMIN_PROJECT_VIEWS.FLAGS ? "View task submission" : "Task details"}
                     >
                       <td className="px-2 py-3.5 w-[12%]">
                         <span className="font-mono text-xs text-primary-700 bg-primary-100 px-1.5 py-0.5 rounded block truncate">{t.taskId}</span>
@@ -592,6 +660,26 @@ export default function ProjectDetail() {
                           ) : (
                             <div className="text-black/60 text-xs">No submissions yet</div>
                           )
+                        ) : activeView === ADMIN_PROJECT_VIEWS.FLAGS ? (
+                          rowFlaggedSubmissions.length ? (
+                            <select
+                              className="input !h-8 !py-1 !px-2 !text-xs"
+                              value={rowSelectedFlagId}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                setSelectedFlagByTaskId((prev) => ({ ...prev, [t._id]: e.target.value }));
+                              }}
+                            >
+                              {rowFlaggedSubmissions.map((submission) => (
+                                <option key={submission._id} value={submission._id}>
+                                  {submission.userId?.name || "Unknown user"} ({submission.userId?.email || "no-email"})
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <div className="text-black/60 text-xs">No flags yet</div>
+                          )
                         ) : (
                           <div className="text-black/80 text-xs truncate" title={t.text}>{t.text}</div>
                         )}
@@ -613,6 +701,19 @@ export default function ProjectDetail() {
                             )
                           ) : (
                             <div className="text-black/60 text-xs">No audio</div>
+                          )
+                        ) : activeView === ADMIN_PROJECT_VIEWS.FLAGS ? (
+                          selectedFlagSubmission ? (
+                            <div className="space-y-1">
+                              <p className="text-black/80 text-xs whitespace-pre-wrap break-all line-clamp-2" title={selectedFlagSubmission.reportedIssue?.note || "No comment"}>
+                                {selectedFlagSubmission.reportedIssue?.note || "No comment provided"}
+                              </p>
+                              <p className="text-black/55 text-[11px] truncate" title={formatDateTime(selectedFlagSubmission.reportedIssue?.reportedAt)}>
+                                {formatDateTime(selectedFlagSubmission.reportedIssue?.reportedAt)}
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="text-black/60 text-xs">No flag comment</div>
                           )
                         ) : (
                           <div className="text-black/65 text-xs truncate" title={t.prompt}>{t.prompt}</div>

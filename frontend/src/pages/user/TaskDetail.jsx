@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import UserLayout from "../../components/layout/UserLayout";
 import { getTaskDetail, getProjectTasks, streamAudio, uploadAudio, flagTaskIssue } from "../../api/user.api";
+import Modal from "../../components/ui/Modal";
 import {
   ChevronLeft, Mic, CheckCircle2, Languages, Play, Pause, SkipBack, SkipForward, Flag,
 } from "lucide-react";
@@ -40,6 +41,9 @@ export default function TaskDetail() {
   const recordingTickerRef = useRef(null);
 
   const [submitting, setSubmitting] = useState(false);
+  const [isFlagModalOpen, setIsFlagModalOpen] = useState(false);
+  const [flagComment, setFlagComment] = useState("");
+  const [flagSubmitting, setFlagSubmitting] = useState(false);
 
   const refreshProjectTasks = async (projectId) => {
     const tasksRes = await getProjectTasks(projectId);
@@ -251,15 +255,30 @@ export default function TaskDetail() {
   };
 
   const handleFlagTask = async () => {
-    setSubmitting(true);
+    setFlagComment("");
+    setIsFlagModalOpen(true);
+  };
+
+  const submitFlagTask = async (event) => {
+    event.preventDefault();
+    const note = flagComment.trim();
+
+    if (!note) {
+      toast.error("Please add a comment before flagging the task.");
+      return;
+    }
+
+    setFlagSubmitting(true);
     try {
-      await flagTaskIssue(id);
+      await flagTaskIssue(id, { note });
       toast.success("Task flagged. Thanks for reporting.");
+      setIsFlagModalOpen(false);
+      setFlagComment("");
       await fetchTask(id, { smooth: true });
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to report task issue");
     } finally {
-      setSubmitting(false);
+      setFlagSubmitting(false);
     }
   };
 
@@ -357,7 +376,7 @@ export default function TaskDetail() {
             <button
               type="button"
               onClick={handleFlagTask}
-              disabled={submitting}
+              disabled={submitting || flagSubmitting}
               className="btn-secondary text-sm px-4 py-1.5 inline-flex items-center gap-1.5"
             >
               <Flag size={14} /> Flag
@@ -533,6 +552,41 @@ export default function TaskDetail() {
         </div>
       </div>
       </div>
+
+      {isFlagModalOpen && (
+        <Modal title="Flag Task" onClose={() => !flagSubmitting && setIsFlagModalOpen(false)} size="md">
+          <form onSubmit={submitFlagTask} className="space-y-4">
+            <div>
+              <p className="text-sm text-black/70 mb-2">Describe the issue you found in this task.</p>
+              <textarea
+                className="input resize-none"
+                rows={4}
+                placeholder="Write your comment"
+                value={flagComment}
+                onChange={(e) => setFlagComment(e.target.value)}
+                maxLength={500}
+                required
+                disabled={flagSubmitting}
+              />
+              <p className="text-xs text-black/55 mt-1">{flagComment.length}/500</p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setIsFlagModalOpen(false)}
+                disabled={flagSubmitting}
+              >
+                Cancel
+              </button>
+              <button type="submit" className="btn-primary" disabled={flagSubmitting}>
+                {flagSubmitting ? "Submitting..." : "Submit Flag"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </UserLayout>
   );
 }
