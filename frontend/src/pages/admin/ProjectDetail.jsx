@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import AdminLayout from "../../components/layout/AdminLayout";
 import Modal from "../../components/ui/Modal";
 import DataTable from "datatables.net-dt";
 import "datatables.net-dt/css/dataTables.dataTables.css";
 import {
-  getProjectById, createTask, updateTask, deleteTask, getAllUsers, getTaskById, getTaskSubmissions, streamSubmissionAudio, uploadTasksExcel
+  getProjectById, createTask, updateTask, deleteTask, getTaskById, getTaskSubmissions, streamSubmissionAudio, uploadTasksExcel
 } from "../../api/admin.api";
 import { Plus, Trash2, Pencil, ChevronLeft, Mic2, FileAudio, FileText, User2, CalendarClock, Upload } from "lucide-react";
 import { PageSpinner, Spinner } from "../../components/ui/Spinner";
@@ -34,7 +34,6 @@ export default function ProjectDetail() {
   const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 640);
   const [project, setProject] = useState(null);
   const [tasks, setTasks] = useState([]);
-  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState(ADMIN_PROJECT_VIEWS.TASKS);
   const [modal, setModal] = useState(null);
@@ -57,11 +56,10 @@ export default function ProjectDetail() {
   const dataTableInstanceRef = useRef(null);
 
   const fetchProject = () => {
-    Promise.all([getProjectById(id), getAllUsers()])
-      .then(([pr, ur]) => {
+    Promise.all([getProjectById(id)])
+      .then(([pr]) => {
         setProject(pr.data.data);
         setTasks(pr.data.data.tasks || []);
-        setUsers(ur.data.data.filter((u) => u.role === "user" && u.isVerified));
       })
       .catch(() => toast.error("Failed to load project"))
       .finally(() => setLoading(false));
@@ -126,7 +124,10 @@ export default function ProjectDetail() {
       const nextSelectedFlag = {};
       entries.forEach(([taskId, submissions]) => {
         nextSubmissions[taskId] = submissions;
-        if (submissions.length) {
+        const audioSubmissions = submissions.filter((submission) => submission.audio?.url || submission.audio?.publicId);
+        if (audioSubmissions.length) {
+          nextSelectedSubmission[taskId] = audioSubmissions[0]._id;
+        } else if (submissions.length) {
           nextSelectedSubmission[taskId] = submissions[0]._id;
         }
 
@@ -142,7 +143,7 @@ export default function ProjectDetail() {
 
       await Promise.all(
         entries.map(async ([taskId, submissions]) => {
-          const firstSubmission = submissions[0];
+          const firstSubmission = submissions.find((submission) => submission.audio?.url || submission.audio?.publicId) || submissions[0];
           if (!firstSubmission?.audio?.url && !firstSubmission?.audio?.publicId) return;
 
           try {
@@ -178,6 +179,14 @@ export default function ProjectDetail() {
   useEffect(() => {
     const tableElement = desktopTableRef.current;
     if (!isDesktop) {
+      if (dataTableInstanceRef.current) {
+        dataTableInstanceRef.current.destroy();
+        dataTableInstanceRef.current = null;
+      }
+      return undefined;
+    }
+
+    if (activeView !== ADMIN_PROJECT_VIEWS.TASKS) {
       if (dataTableInstanceRef.current) {
         dataTableInstanceRef.current.destroy();
         dataTableInstanceRef.current = null;
@@ -300,7 +309,7 @@ export default function ProjectDetail() {
     }
   };
 
-  const openSubmission = async (taskId) => {
+  const openSubmission = async (taskId, { preferredSubmissionId } = {}) => {
     setModal("submission");
     setSubmissionLoading(true);
     setSelectedTask(null);
@@ -323,11 +332,15 @@ export default function ProjectDetail() {
       setTaskSubmissions(submissions);
 
       if (submissions.length) {
-        const firstSubmissionId = submissions[0]._id;
-        setSelectedSubmissionId(firstSubmissionId);
-        const firstSubmission = submissions[0];
-        if (firstSubmission.audio?.publicId || firstSubmission.audio?.url) {
-          const audioResponse = await streamSubmissionAudio(firstSubmissionId);
+        const selectedById = preferredSubmissionId
+          ? submissions.find((submission) => submission._id === preferredSubmissionId)
+          : null;
+        const firstAudioSubmission = submissions.find((submission) => submission.audio?.publicId || submission.audio?.url);
+        const initialSubmission = selectedById || firstAudioSubmission || submissions[0];
+
+        setSelectedSubmissionId(initialSubmission._id);
+        if (initialSubmission.audio?.publicId || initialSubmission.audio?.url) {
+          const audioResponse = await streamSubmissionAudio(initialSubmission._id);
           const audioBlobUrl = URL.createObjectURL(audioResponse.data);
           setSubmissionAudioUrl(audioBlobUrl);
         }
@@ -346,6 +359,29 @@ export default function ProjectDetail() {
     const rowSubmissions = submissionsByTaskId[taskId] || [];
     return rowSubmissions.filter((submission) => submission.reportedIssue?.flagged);
   };
+
+  const getAudioSubmissionsForTask = (taskId) => {
+    const rowSubmissions = submissionsByTaskId[taskId] || [];
+    return rowSubmissions.filter((submission) => submission.audio?.url || submission.audio?.publicId);
+  };
+
+  const displayedTasks = useMemo(() => {
+    if (activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS) {
+      return tasks.filter((task) => {
+        const rowSubmissions = submissionsByTaskId[task._id] || [];
+        return rowSubmissions.some((submission) => submission.audio?.url || submission.audio?.publicId);
+      });
+    }
+
+    if (activeView === ADMIN_PROJECT_VIEWS.FLAGS) {
+      return tasks.filter((task) => {
+        const rowSubmissions = submissionsByTaskId[task._id] || [];
+        return rowSubmissions.some((submission) => submission.reportedIssue?.flagged);
+      });
+    }
+
+    return tasks;
+  }, [tasks, activeView, submissionsByTaskId]);
 
   const handleSave = async (e) => {
     e.preventDefault(); setSaving(true);
@@ -404,6 +440,14 @@ export default function ProjectDetail() {
     }
   };
 
+  const handleViewChange = (nextView) => {
+    if (dataTableInstanceRef.current) {
+      dataTableInstanceRef.current.destroy();
+      dataTableInstanceRef.current = null;
+    }
+    setActiveView(nextView);
+  };
+
   return (
     <AdminLayout>
       <Link to="/admin/projects" className="flex items-center gap-1.5 text-sm text-black/70 hover:text-black mb-6 transition">
@@ -421,7 +465,7 @@ export default function ProjectDetail() {
               <div className="inline-flex rounded-lg border border-[#c3cdc0] bg-white p-1 w-full sm:w-auto">
                 <button
                   type="button"
-                  onClick={() => setActiveView(ADMIN_PROJECT_VIEWS.TASKS)}
+                  onClick={() => handleViewChange(ADMIN_PROJECT_VIEWS.TASKS)}
                   className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-semibold rounded-md border border-transparent transition ${
                     activeView === ADMIN_PROJECT_VIEWS.TASKS
                       ? "bg-[#dbe7d8] text-black border-[#b9c8b3]"
@@ -432,7 +476,7 @@ export default function ProjectDetail() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveView(ADMIN_PROJECT_VIEWS.SUBMISSIONS)}
+                  onClick={() => handleViewChange(ADMIN_PROJECT_VIEWS.SUBMISSIONS)}
                   className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-semibold rounded-md border border-transparent transition ${
                     activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS
                       ? "bg-[#dbe7d8] text-black border-[#b9c8b3]"
@@ -443,7 +487,7 @@ export default function ProjectDetail() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveView(ADMIN_PROJECT_VIEWS.FLAGS)}
+                  onClick={() => handleViewChange(ADMIN_PROJECT_VIEWS.FLAGS)}
                   className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-semibold rounded-md border border-transparent transition ${
                     activeView === ADMIN_PROJECT_VIEWS.FLAGS
                       ? "bg-[#dbe7d8] text-black border-[#b9c8b3]"
@@ -478,13 +522,20 @@ export default function ProjectDetail() {
           <div className="admin-datatable card p-0 overflow-hidden border border-[#c3cdc0] shadow-sm">
             {/* Mobile card list */}
             <div className="sm:hidden divide-y divide-[#d2dad0]">
-              {tasks.map((t) => (
+              {displayedTasks.map((t) => (
                 <div key={t._id} className="p-4 space-y-2 hover:bg-primary-50/70 transition">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-xs text-primary-700 bg-primary-100 px-2 py-0.5 rounded truncate">{t.taskId}</span>
                     <button
                       type="button"
-                      onClick={() => openSubmission(t._id)}
+                      onClick={() => {
+                        const preferredSubmissionId = activeView === ADMIN_PROJECT_VIEWS.FLAGS
+                          ? (selectedFlagByTaskId[t._id] || getFlaggedSubmissionsForTask(t._id)[0]?._id)
+                          : activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS
+                            ? (selectedSubmissionByTaskId[t._id] || getAudioSubmissionsForTask(t._id)[0]?._id)
+                            : undefined;
+                        openSubmission(t._id, { preferredSubmissionId });
+                      }}
                       className="text-[11px] text-primary-800 hover:text-primary-900"
                     >
                       Details
@@ -494,8 +545,8 @@ export default function ProjectDetail() {
 
                   {activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS ? (
                     (() => {
-                      const rowSubmissions = submissionsByTaskId[t._id] || [];
-                      const rowSelectedId = selectedSubmissionByTaskId[t._id] || "";
+                      const rowSubmissions = getAudioSubmissionsForTask(t._id);
+                      const rowSelectedId = selectedSubmissionByTaskId[t._id] || rowSubmissions[0]?._id || "";
                       const rowAudioUrl = audioUrlByTaskId[t._id];
 
                       return rowSubmissions.length ? (
@@ -578,10 +629,14 @@ export default function ProjectDetail() {
                   </div>
                 </div>
               ))}
-              {!tasks.length && (
+              {!displayedTasks.length && (
                 <div className="px-4 py-12 text-center text-black/60">
                   <Mic2 size={32} className="mx-auto mb-2 opacity-30" />
-                  No tasks yet. Add your first task.
+                  {activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS
+                    ? "No tasks with audio submissions yet."
+                    : activeView === ADMIN_PROJECT_VIEWS.FLAGS
+                      ? "No flagged tasks yet."
+                      : "No tasks yet. Add your first task."}
                 </div>
               )}
             </div>
@@ -611,11 +666,11 @@ export default function ProjectDetail() {
                 </tr>
               </thead>
               <tbody>
-                {tasks.map((t) => {
-                  const rowSubmissions = submissionsByTaskId[t._id] || [];
-                  const rowSelectedId = selectedSubmissionByTaskId[t._id] || "";
+                {displayedTasks.map((t) => {
+                  const rowSubmissions = getAudioSubmissionsForTask(t._id);
+                  const rowSelectedId = selectedSubmissionByTaskId[t._id] || rowSubmissions[0]?._id || "";
                   const hasSubmissionView = rowSubmissions.length > 0;
-                  const rowFlaggedSubmissions = rowSubmissions.filter((submission) => submission.reportedIssue?.flagged);
+                  const rowFlaggedSubmissions = getFlaggedSubmissionsForTask(t._id);
                   const rowSelectedFlagId = selectedFlagByTaskId[t._id] || rowFlaggedSubmissions[0]?._id || "";
                   const selectedFlagSubmission = rowFlaggedSubmissions.find((submission) => submission._id === rowSelectedFlagId) || null;
                   const rowAudioUrl = audioUrlByTaskId[t._id];
@@ -628,7 +683,10 @@ export default function ProjectDetail() {
                       }`}
                       onClick={() => {
                         if (activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS || activeView === ADMIN_PROJECT_VIEWS.FLAGS) {
-                          openSubmission(t._id);
+                          const preferredSubmissionId = activeView === ADMIN_PROJECT_VIEWS.FLAGS
+                            ? rowSelectedFlagId
+                            : rowSelectedId;
+                          openSubmission(t._id, { preferredSubmissionId });
                         }
                       }}
                       title={activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS || activeView === ADMIN_PROJECT_VIEWS.FLAGS ? "View task submission" : "Task details"}
@@ -740,11 +798,15 @@ export default function ProjectDetail() {
                     </tr>
                   );
                 })}
-                {!tasks.length && (
+                {!displayedTasks.length && (
                   <tr>
                     <td colSpan={5} className="px-4 py-12 text-center text-black/60">
                       <Mic2 size={32} className="mx-auto mb-2 opacity-30" />
-                      No tasks yet. Add your first task.
+                      {activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS
+                        ? "No tasks with audio submissions yet."
+                        : activeView === ADMIN_PROJECT_VIEWS.FLAGS
+                          ? "No flagged tasks yet."
+                          : "No tasks yet. Add your first task."}
                     </td>
                   </tr>
                 )}
@@ -855,6 +917,18 @@ export default function ProjectDetail() {
                   <p className="text-black/60 text-sm">No submissions yet for this task.</p>
                 )}
               </div>
+
+              {selectedSubmission?.reportedIssue?.flagged && (
+                <div className="rounded-2xl border border-[#d3b9b1] bg-[#f8efec] p-4">
+                  <p className="label mb-2 text-[#8d3d2e]">Flag Reason</p>
+                  <p className="text-sm text-black/80 whitespace-pre-wrap break-all">
+                    {selectedSubmission.reportedIssue?.note || "No reason provided."}
+                  </p>
+                  <p className="text-xs text-black/55 mt-2">
+                    Reported at {formatDateTime(selectedSubmission.reportedIssue?.reportedAt)}
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 <div className="rounded-2xl border border-[#c7d1c3] bg-[#eef2ec] p-4">
