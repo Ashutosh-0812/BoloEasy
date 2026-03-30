@@ -10,6 +10,7 @@ const {
   updateProjectValidator,
   createTaskValidator,
   updateTaskValidator,
+  updateUserValidator,
 } = require("./validators/admin.validator");
 
 // All admin routes require authentication + admin role
@@ -22,6 +23,7 @@ router.get("/dashboard", ctrl.getDashboard);
 router.get("/users", ctrl.getAllUsers);
 router.get("/users/pending", ctrl.getPendingUsers);
 router.patch("/users/:id/verify", [validateObjectId("id"), validate], ctrl.verifyUser);
+router.patch("/users/:id", [validateObjectId("id"), ...updateUserValidator, validate], ctrl.updateUser);
 router.patch(
   "/projects/:projectId/assign/:userId",
   [validateObjectId("projectId"), validateObjectId("userId"), validate],

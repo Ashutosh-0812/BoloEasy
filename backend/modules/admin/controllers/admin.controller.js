@@ -36,6 +36,17 @@ const verifyUser = async (req, res, next) => {
   }
 };
 
+const updateUser = async (req, res, next) => {
+  try {
+    logger.info(`Admin ${req.user.id} updating user ${req.params.id}`);
+    const user = await svc.updateUser(req.params.id, req.body);
+    return successResponse(res, "User updated successfully.", user);
+  } catch (err) {
+    if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
+    next(err);
+  }
+};
+
 const assignProjectToUser = async (req, res, next) => {
   try {
     logger.info(`Admin ${req.user.id} assigning project ${req.params.projectId} to user ${req.params.userId}`);
@@ -232,7 +243,7 @@ const streamSubmissionAudio = async (req, res, next) => {
 
 module.exports = {
   getDashboard,
-  getAllUsers, getPendingUsers, verifyUser,
+  getAllUsers, getPendingUsers, verifyUser, updateUser,
   assignProjectToUser,
   unassignProjectFromUser,
   getAssignedProjectIdsByUser,

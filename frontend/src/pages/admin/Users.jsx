@@ -6,12 +6,13 @@ import "datatables.net-dt/css/dataTables.dataTables.css";
 import {
   getAllUsers,
   verifyUser,
+  updateUser,
   getAllProjects,
   getAssignedProjectIdsByUser,
   assignProjectToUser,
   unassignProjectFromUser,
 } from "../../api/admin.api";
-import { CheckCircle, Clock, ShieldCheck, FolderUp } from "lucide-react";
+import { CheckCircle, Clock, ShieldCheck, FolderUp, Pencil } from "lucide-react";
 import { PageSpinner } from "../../components/ui/Spinner";
 import toast from "react-hot-toast";
 
@@ -25,6 +26,9 @@ export default function AdminUsers() {
   const [assigning, setAssigning] = useState(false);
   const [unassigningProjectId, setUnassigningProjectId] = useState(null);
   const [assignModalUser, setAssignModalUser] = useState(null);
+  const [editModalUser, setEditModalUser] = useState(null);
+  const [savingUserEdit, setSavingUserEdit] = useState(false);
+  const [editForm, setEditForm] = useState({ name: "", email: "", role: "user", isVerified: false });
   const [selectedProjectIds, setSelectedProjectIds] = useState([]);
   const [pendingProjectId, setPendingProjectId] = useState("");
   const [assignedProjectIds, setAssignedProjectIds] = useState([]);
@@ -93,7 +97,7 @@ export default function AdminUsers() {
         dataTableInstanceRef.current = null;
       }
     };
-  }, [isDesktop, loading, users, verifying]);
+  }, [isDesktop, loading, users, verifying, savingUserEdit]);
 
   const fetchProjects = async () => {
     setLoadingProjects(true);
@@ -117,6 +121,51 @@ export default function AdminUsers() {
       toast.error(err.response?.data?.message || "Verification failed");
     } finally {
       setVerifying(null);
+    }
+  };
+
+  const openEditModal = (user) => {
+    setEditModalUser(user);
+    setEditForm({
+      name: user.name || "",
+      email: user.email || "",
+      role: user.role || "user",
+      isVerified: Boolean(user.isVerified),
+    });
+  };
+
+  const closeEditModal = () => {
+    setEditModalUser(null);
+    setSavingUserEdit(false);
+    setEditForm({ name: "", email: "", role: "user", isVerified: false });
+  };
+
+  const handleSaveUserEdit = async (e) => {
+    e.preventDefault();
+    if (!editModalUser?._id) return;
+
+    const payload = {
+      name: editForm.name.trim(),
+      email: editForm.email.trim(),
+      role: editForm.role,
+      isVerified: Boolean(editForm.isVerified),
+    };
+
+    if (!payload.name || !payload.email) {
+      toast.error("Name and email are required");
+      return;
+    }
+
+    setSavingUserEdit(true);
+    try {
+      await updateUser(editModalUser._id, payload);
+      toast.success("User updated successfully");
+      closeEditModal();
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to update user");
+    } finally {
+      setSavingUserEdit(false);
     }
   };
 
@@ -227,25 +276,38 @@ export default function AdminUsers() {
   };
 
   const renderActionButton = (u) => {
-    if (u.role !== "user") return null;
-
-    if (!u.isVerified) {
-      return (
-        <button onClick={() => handleVerify(u._id)} disabled={verifying === u._id}
-          className="btn-primary flex items-center gap-1.5 py-1.5 px-3 text-xs">
-          <ShieldCheck size={13} />
-          {verifying === u._id ? "Verifying…" : "Verify"}
-        </button>
-      );
-    }
+    const canVerify = u.role === "user" && !u.isVerified;
+    const canAssign = u.role === "user" && u.isVerified;
 
     return (
-      <button
-        onClick={() => openAssignModal(u)}
-        className="btn-secondary flex items-center gap-1.5 py-1.5 px-3 text-xs"
-      >
-        <FolderUp size={13} /> Assign
-      </button>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <button
+          onClick={() => openEditModal(u)}
+          className="btn-secondary flex items-center gap-1.5 py-1.5 px-3 text-xs"
+        >
+          <Pencil size={13} /> Edit
+        </button>
+
+        {canVerify ? (
+          <button
+            onClick={() => handleVerify(u._id)}
+            disabled={verifying === u._id}
+            className="btn-primary flex items-center gap-1.5 py-1.5 px-3 text-xs"
+          >
+            <ShieldCheck size={13} />
+            {verifying === u._id ? "Verifying..." : "Verify"}
+          </button>
+        ) : null}
+
+        {canAssign ? (
+          <button
+            onClick={() => openAssignModal(u)}
+            className="btn-secondary flex items-center gap-1.5 py-1.5 px-3 text-xs"
+          >
+            <FolderUp size={13} /> Assign
+          </button>
+        ) : null}
+      </div>
     );
   };
 
@@ -256,7 +318,6 @@ export default function AdminUsers() {
 
       {loading ? <PageSpinner /> : (
         <div className="admin-datatable card p-0 overflow-hidden">
-          {/* Mobile card list */}
           <div className="sm:hidden divide-y divide-surface-border">
             {users.map((u) => (
               <div key={u._id} className="p-4 space-y-2">
@@ -283,42 +344,100 @@ export default function AdminUsers() {
             )}
           </div>
 
-          {/* Desktop table */}
           <div className="hidden sm:block">
-          <table ref={desktopTableRef} className="w-full text-sm display">
-            <thead>
-              <tr className="border-b border-primary-100 bg-primary-50/30">
-                {["Name", "Email", "Role", "Status", "Joined", "Action"].map((h) => (
-                  <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-primary-500 uppercase tracking-wide">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u._id} className="border-b border-primary-100 hover:bg-primary-50/40 transition">
-                  <td className="px-5 py-4 font-medium text-primary-900">{u.name}</td>
-                  <td className="px-5 py-4 text-primary-500">{u.email}</td>
-                  <td className="px-5 py-4">
-                    <span className={u.role === "admin" ? "badge-admin" : "badge-user"}>{u.role}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    {u.isVerified
-                      ? <span className="badge-done flex items-center gap-1 w-fit"><CheckCircle size={12} /> Verified</span>
-                      : <span className="badge-pending flex items-center gap-1 w-fit"><Clock size={12} /> Pending</span>}
-                  </td>
-                  <td className="px-5 py-4 text-primary-400">{new Date(u.createdAt).toLocaleDateString()}</td>
-                  <td className="px-5 py-4">
-                    {renderActionButton(u)}
-                  </td>
+            <table ref={desktopTableRef} className="w-full text-sm display">
+              <thead>
+                <tr className="border-b border-primary-100 bg-primary-50/30">
+                  {["Name", "Email", "Role", "Status", "Joined", "Action"].map((h) => (
+                    <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-primary-500 uppercase tracking-wide">{h}</th>
+                  ))}
                 </tr>
-              ))}
-              {!users.length && (
-                <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-500">No users found.</td></tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {users.map((u) => (
+                  <tr key={u._id} className="border-b border-primary-100 hover:bg-primary-50/40 transition">
+                    <td className="px-5 py-4 font-medium text-primary-900">{u.name}</td>
+                    <td className="px-5 py-4 text-primary-500">{u.email}</td>
+                    <td className="px-5 py-4">
+                      <span className={u.role === "admin" ? "badge-admin" : "badge-user"}>{u.role}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      {u.isVerified
+                        ? <span className="badge-done flex items-center gap-1 w-fit"><CheckCircle size={12} /> Verified</span>
+                        : <span className="badge-pending flex items-center gap-1 w-fit"><Clock size={12} /> Pending</span>}
+                    </td>
+                    <td className="px-5 py-4 text-primary-400">{new Date(u.createdAt).toLocaleDateString()}</td>
+                    <td className="px-5 py-4">{renderActionButton(u)}</td>
+                  </tr>
+                ))}
+                {!users.length && (
+                  <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-500">No users found.</td></tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
+      )}
+
+      {editModalUser && (
+        <Modal title="Edit User" onClose={closeEditModal} size="sm">
+          <form onSubmit={handleSaveUserEdit} className="space-y-4">
+            <div>
+              <label className="label">Name</label>
+              <input
+                type="text"
+                className="input"
+                value={editForm.name}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="label">Email</label>
+              <input
+                type="email"
+                className="input"
+                value={editForm.email}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="label">Role</label>
+              <select
+                className="input"
+                value={editForm.role}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, role: e.target.value }))}
+              >
+                <option value="user">user</option>
+                <option value="admin">admin</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="label">Status</label>
+              <select
+                className="input"
+                value={editForm.isVerified ? "verified" : "pending"}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, isVerified: e.target.value === "verified" }))}
+              >
+                <option value="pending">Pending</option>
+                <option value="verified">Verified</option>
+              </select>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={closeEditModal} className="btn-secondary" disabled={savingUserEdit}>
+                Cancel
+              </button>
+              <button type="submit" className="btn-primary" disabled={savingUserEdit}>
+                {savingUserEdit ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {assignModalUser && (

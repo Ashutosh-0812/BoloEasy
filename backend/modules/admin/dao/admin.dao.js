@@ -32,6 +32,10 @@ const verifyUser = async (userId) => {
   return User.findByIdAndUpdate(userId, { isVerified: true }, { new: true }).select("-password");
 };
 
+const updateUser = async (userId, data) => {
+  return User.findByIdAndUpdate(userId, data, { new: true, runValidators: true }).select("-password");
+};
+
 const getUserById = async (userId) => {
   return User.findById(userId).select("-password");
 };
@@ -160,7 +164,7 @@ const getDashboardStats = async () => {
 };
 
 module.exports = {
-  getAllUsers, getPendingUsers, verifyUser,
+  getAllUsers, getPendingUsers, verifyUser, updateUser,
   getUserById, getUserByEmail,
   createProject, getAllProjects, getProjectById, updateProject, deleteProject,
   createTask, addTaskToProject, addTasksToProject, getTasksByProject, getTaskById, updateTask, deleteTask, removeTaskFromProject,

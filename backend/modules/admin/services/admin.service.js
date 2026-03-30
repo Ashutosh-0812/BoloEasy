@@ -87,6 +87,40 @@ const verifyUser = async (userId) => {
   return user;
 };
 
+const updateUser = async (userId, payload) => {
+  const user = await dao.getUserById(userId);
+  if (!user) {
+    const err = new Error("User not found.");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const updateData = {};
+  if (payload.name !== undefined) updateData.name = String(payload.name).trim();
+  if (payload.email !== undefined) updateData.email = String(payload.email).trim().toLowerCase();
+  if (payload.role !== undefined) updateData.role = payload.role;
+  if (payload.isVerified !== undefined) updateData.isVerified = payload.isVerified;
+
+  if (Object.keys(updateData).length === 0) {
+    const err = new Error("At least one field is required to update user.");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (updateData.email && updateData.email !== user.email) {
+    const userWithEmail = await dao.getUserByEmail(updateData.email);
+    if (userWithEmail && String(userWithEmail._id) !== String(userId)) {
+      const err = new Error("Email is already in use.");
+      err.statusCode = 409;
+      throw err;
+    }
+  }
+
+  const updatedUser = await dao.updateUser(userId, updateData);
+  logger.info(`Admin updated user: ${updatedUser.email}`);
+  return updatedUser;
+};
+
 const assignProjectToUser = async (projectId, userId, adminId) => {
   const [project, user] = await Promise.all([
     dao.getProjectById(projectId),
@@ -428,7 +462,7 @@ const createTasksFromExcel = async (projectId, fileBuffer) => {
 
 module.exports = {
   getDashboard,
-  getAllUsers, getPendingUsers, verifyUser,
+  getAllUsers, getPendingUsers, verifyUser, updateUser,
   assignProjectToUser,
   unassignProjectFromUser,
   getAssignedProjectIdsByUser,

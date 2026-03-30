@@ -26,6 +26,29 @@ const updateProjectValidator = [
     .isLength({ max: 1000 }).withMessage("Description must be at most 1000 characters"),
 ];
 
+// ─── User Validators ──────────────────────────────────────────────────────────
+
+const updateUserValidator = [
+  body("name")
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 100 }).withMessage("Name must be between 2 and 100 characters"),
+
+  body("email")
+    .optional()
+    .trim()
+    .isEmail().withMessage("Please provide a valid email address")
+    .normalizeEmail(),
+
+  body("role")
+    .optional()
+    .isIn(["user", "admin"]).withMessage("Role must be either 'user' or 'admin'"),
+
+  body("isVerified")
+    .optional()
+    .isBoolean().withMessage("isVerified must be a boolean"),
+];
+
 // ─── Task Validators ──────────────────────────────────────────────────────────
 
 const createTaskValidator = [
@@ -78,6 +101,7 @@ const updateTaskValidator = [
 module.exports = {
   createProjectValidator,
   updateProjectValidator,
+  updateUserValidator,
   createTaskValidator,
   updateTaskValidator,
 };
