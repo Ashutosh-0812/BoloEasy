@@ -214,6 +214,14 @@ export default function ProjectDetail() {
 
     if (loading || !tableElement) return undefined;
 
+    if (!tasks.length) {
+      if (dataTableInstanceRef.current) {
+        dataTableInstanceRef.current.destroy();
+        dataTableInstanceRef.current = null;
+      }
+      return undefined;
+    }
+
     if (dataTableInstanceRef.current) {
       dataTableInstanceRef.current.destroy();
       dataTableInstanceRef.current = null;
