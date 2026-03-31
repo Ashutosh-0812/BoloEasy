@@ -228,6 +228,25 @@ const getTaskSubmissionById = async (submissionId) => {
   return submission;
 };
 
+const addAdminCommentToFlag = async (submissionId, adminComment, adminId) => {
+  const submission = await dao.getTaskSubmissionById(submissionId);
+  if (!submission) {
+    const err = new Error("Submission not found.");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (!submission.reportedIssue?.flagged) {
+    const err = new Error("Submission is not flagged.");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const updated = await dao.addAdminCommentToFlag(submissionId, adminComment, adminId);
+  logger.info(`Admin ${adminId} commented on submission ${submissionId}.`);
+  return updated;
+};
+
 // ─── Projects ─────────────────────────────────────────────────────────────────
 const createProject = async ({ name, description, adminId }) => {
   const project = await dao.createProject({ name, description, createdBy: adminId });
@@ -468,6 +487,7 @@ module.exports = {
   getAssignedProjectIdsByUser,
   getTaskSubmissions,
   getTaskSubmissionById,
+  addAdminCommentToFlag,
   createProject, getAllProjects, getProjectById, updateProject, deleteProject,
   createTask, createTasksFromExcel, getTasksByProject, getTaskById, updateTask, deleteTask,
 };

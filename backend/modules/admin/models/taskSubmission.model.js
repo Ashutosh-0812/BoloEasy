@@ -41,6 +41,9 @@ const taskSubmissionSchema = new mongoose.Schema(
       flagged: { type: Boolean, default: false },
       note: { type: String, default: "" },
       reportedAt: { type: Date, default: null },
+      adminComment: { type: String, default: "" },
+      adminCommentedAt: { type: Date, default: null },
+      adminCommentedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     },
   },
   { timestamps: true }

@@ -39,3 +39,4 @@ export const deleteTask = (id) => api.delete(`/admin/tasks/${id}`);
 export const streamTaskAudio = (id) => api.get(`/admin/tasks/${id}/audio`, { responseType: 'blob' });
 export const getTaskSubmissions = (id) => api.get(`/admin/tasks/${id}/submissions`);
 export const streamSubmissionAudio = (id) => api.get(`/admin/submissions/${id}/audio`, { responseType: 'blob' });
+export const addAdminCommentToFlag = (submissionId, data) => api.patch(`/admin/submissions/${submissionId}/flag-comment`, data);

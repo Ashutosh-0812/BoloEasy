@@ -5,9 +5,17 @@ import Modal from "../../components/ui/Modal";
 import DataTable from "datatables.net-dt";
 import "datatables.net-dt/css/dataTables.dataTables.css";
 import {
-  getProjectById, createTask, updateTask, deleteTask, getTaskById, getTaskSubmissions, streamSubmissionAudio, uploadTasksExcel
+  getProjectById,
+  createTask,
+  updateTask,
+  deleteTask,
+  getTaskById,
+  getTaskSubmissions,
+  streamSubmissionAudio,
+  uploadTasksExcel,
+  addAdminCommentToFlag,
 } from "../../api/admin.api";
-import { Plus, Trash2, Pencil, ChevronLeft, Mic2, FileAudio, FileText, User2, CalendarClock, Upload } from "lucide-react";
+import { Plus, Trash2, Pencil, ChevronLeft, Mic2, FileAudio, FileText, User2, CalendarClock, Upload, MessageSquare } from "lucide-react";
 import { PageSpinner, Spinner } from "../../components/ui/Spinner";
 import toast from "react-hot-toast";
 
@@ -18,6 +26,47 @@ const ADMIN_PROJECT_VIEWS = {
   SUBMISSIONS: "submissions",
   FLAGS: "flags",
 };
+
+const LIST_PAGE_SIZE = 10;
+
+const paginateRows = (rows, page, pageSize = LIST_PAGE_SIZE) => {
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const currentPage = Math.min(Math.max(1, page), totalPages);
+  const startIndex = (currentPage - 1) * pageSize;
+  return {
+    rows: rows.slice(startIndex, startIndex + pageSize),
+    currentPage,
+    totalPages,
+  };
+};
+
+function PaginationControls({ currentPage, totalPages, onPrev, onNext, className = "" }) {
+  return (
+    <div className={`flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 justify-between px-4 py-3 border-t border-[#d2dad0] ${className}`}>
+      <span className="text-xs text-black/60">
+        Page {currentPage} of {totalPages}
+      </span>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onPrev}
+          disabled={currentPage <= 1}
+          className="px-3 py-1.5 rounded border border-[#c3cdc0] text-xs font-semibold text-black/70 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white"
+        >
+          Previous
+        </button>
+        <button
+          type="button"
+          onClick={onNext}
+          disabled={currentPage >= totalPages}
+          className="px-3 py-1.5 rounded border border-[#c3cdc0] text-xs font-semibold text-black/70 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const formatDateTime = (value) => {
   if (!value) return "Not available";
@@ -41,19 +90,24 @@ export default function ProjectDetail() {
   const [form, setForm] = useState(EMPTY_TASK);
   const [saving, setSaving] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [submissionsByTaskId, setSubmissionsByTaskId] = useState({});
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
   const [taskSubmissions, setTaskSubmissions] = useState([]);
   const [selectedSubmissionId, setSelectedSubmissionId] = useState("");
   const [submissionLoading, setSubmissionLoading] = useState(false);
   const [submissionAudioUrl, setSubmissionAudioUrl] = useState(null);
-  const [submissionsByTaskId, setSubmissionsByTaskId] = useState({});
-  const [selectedSubmissionByTaskId, setSelectedSubmissionByTaskId] = useState({});
-  const [selectedFlagByTaskId, setSelectedFlagByTaskId] = useState({});
-  const [audioUrlByTaskId, setAudioUrlByTaskId] = useState({});
-  const [loadingRowSubmissions, setLoadingRowSubmissions] = useState({});
+  const [adminComment, setAdminComment] = useState("");
+  const [adminCommentSaving, setAdminCommentSaving] = useState(false);
+  const [shouldFocusComment, setShouldFocusComment] = useState(false);
+  const [isEditingComment, setIsEditingComment] = useState(false);
   const [bulkUploading, setBulkUploading] = useState(false);
+  const [submissionSearch, setSubmissionSearch] = useState("");
+  const [submissionPage, setSubmissionPage] = useState(1);
+  const [flagPage, setFlagPage] = useState(1);
   const excelInputRef = useRef(null);
   const desktopTableRef = useRef(null);
   const dataTableInstanceRef = useRef(null);
+  const commentFieldRef = useRef(null);
 
   const fetchProject = () => {
     Promise.all([getProjectById(id)])
@@ -73,93 +127,51 @@ export default function ProjectDetail() {
   }, [submissionAudioUrl]);
 
   useEffect(() => {
+    if (modal === "submission" && shouldFocusComment && commentFieldRef.current) {
+      commentFieldRef.current.focus();
+      setShouldFocusComment(false);
+    }
+  }, [modal, shouldFocusComment]);
+
+  useEffect(() => {
+    if (activeView === ADMIN_PROJECT_VIEWS.TASKS) {
+      setSubmissionsLoading(false);
+      return;
+    }
+
+    if (!tasks.length) {
+      setSubmissionsByTaskId({});
+      setSubmissionsLoading(false);
+      return;
+    }
+
     let ignore = false;
+    setSubmissionsLoading(true);
 
     const loadTaskSubmissions = async () => {
-      if (activeView !== ADMIN_PROJECT_VIEWS.SUBMISSIONS && activeView !== ADMIN_PROJECT_VIEWS.FLAGS) {
-        setLoadingRowSubmissions({});
-        return;
-      }
+      try {
+        const entries = await Promise.all(
+          tasks.map(async (task) => {
+            try {
+              const res = await getTaskSubmissions(task._id);
+              return [task._id, res.data.data || []];
+            } catch {
+              return [task._id, []];
+            }
+          })
+        );
 
-      if (!tasks.length) {
-        setSubmissionsByTaskId({});
-        setSelectedSubmissionByTaskId({});
-        setAudioUrlByTaskId((prev) => {
-          Object.values(prev).forEach((url) => {
-            if (url) URL.revokeObjectURL(url);
-          });
-          return {};
+        if (ignore) return;
+
+        const nextSubmissions = {};
+        entries.forEach(([taskId, submissions]) => {
+          nextSubmissions[taskId] = submissions;
         });
-        return;
-      }
-
-      setLoadingRowSubmissions((prev) => {
-        const next = { ...prev };
-        tasks.forEach((task) => { next[task._id] = true; });
-        return next;
-      });
-
-      setAudioUrlByTaskId((prev) => {
-        Object.values(prev).forEach((url) => {
-          if (url) URL.revokeObjectURL(url);
-        });
-        return {};
-      });
-
-      const entries = await Promise.all(
-        tasks.map(async (task) => {
-          try {
-            const res = await getTaskSubmissions(task._id);
-            return [task._id, res.data.data || []];
-          } catch {
-            return [task._id, []];
-          }
-        })
-      );
-
-      if (ignore) return;
-
-      const nextSubmissions = {};
-      const nextSelectedSubmission = {};
-      const nextSelectedFlag = {};
-      entries.forEach(([taskId, submissions]) => {
-        nextSubmissions[taskId] = submissions;
-        const audioSubmissions = submissions.filter((submission) => submission.audio?.url || submission.audio?.publicId);
-        if (audioSubmissions.length) {
-          nextSelectedSubmission[taskId] = audioSubmissions[0]._id;
-        } else if (submissions.length) {
-          nextSelectedSubmission[taskId] = submissions[0]._id;
+        setSubmissionsByTaskId(nextSubmissions);
+      } finally {
+        if (!ignore) {
+          setSubmissionsLoading(false);
         }
-
-        const flaggedSubmissions = submissions.filter((submission) => submission.reportedIssue?.flagged);
-        if (flaggedSubmissions.length) {
-          nextSelectedFlag[taskId] = flaggedSubmissions[0]._id;
-        }
-      });
-
-      setSubmissionsByTaskId(nextSubmissions);
-      setSelectedSubmissionByTaskId(nextSelectedSubmission);
-      setSelectedFlagByTaskId(nextSelectedFlag);
-
-      await Promise.all(
-        entries.map(async ([taskId, submissions]) => {
-          const firstSubmission = submissions.find((submission) => submission.audio?.url || submission.audio?.publicId) || submissions[0];
-          if (!firstSubmission?.audio?.url && !firstSubmission?.audio?.publicId) return;
-
-          try {
-            const audioResponse = await streamSubmissionAudio(firstSubmission._id);
-            if (ignore) return;
-
-            const blobUrl = URL.createObjectURL(audioResponse.data);
-            setAudioUrlByTaskId((prev) => ({ ...prev, [taskId]: blobUrl }));
-          } catch {
-            // Keep row visible even if audio cannot be streamed.
-          }
-        })
-      );
-
-      if (!ignore) {
-        setLoadingRowSubmissions({});
       }
     };
 
@@ -175,6 +187,12 @@ export default function ProjectDetail() {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  useEffect(() => {
+    if (activeView === ADMIN_PROJECT_VIEWS.TASKS && submissionSearch) {
+      setSubmissionSearch("");
+    }
+  }, [activeView, submissionSearch]);
 
   useEffect(() => {
     const tableElement = desktopTableRef.current;
@@ -233,45 +251,7 @@ export default function ProjectDetail() {
     loading,
     tasks,
     activeView,
-    submissionsByTaskId,
-    selectedSubmissionByTaskId,
-    selectedFlagByTaskId,
-    audioUrlByTaskId,
-    loadingRowSubmissions,
   ]);
-
-  const handleRowSubmissionChange = async (taskId, submissionId) => {
-    setSelectedSubmissionByTaskId((prev) => ({ ...prev, [taskId]: submissionId }));
-    setLoadingRowSubmissions((prev) => ({ ...prev, [taskId]: true }));
-
-    const selectedSubmission = (submissionsByTaskId[taskId] || []).find((s) => s._id === submissionId);
-    if (!selectedSubmission?.audio?.url && !selectedSubmission?.audio?.publicId) {
-      setAudioUrlByTaskId((prev) => {
-        const next = { ...prev };
-        if (next[taskId]) URL.revokeObjectURL(next[taskId]);
-        delete next[taskId];
-        return next;
-      });
-      setLoadingRowSubmissions((prev) => ({ ...prev, [taskId]: false }));
-      return;
-    }
-
-    try {
-      const audioResponse = await streamSubmissionAudio(submissionId);
-      const blobUrl = URL.createObjectURL(audioResponse.data);
-
-      setAudioUrlByTaskId((prev) => {
-        const next = { ...prev };
-        if (next[taskId]) URL.revokeObjectURL(next[taskId]);
-        next[taskId] = blobUrl;
-        return next;
-      });
-    } catch {
-      toast.error("Submission selected, but audio could not be loaded.");
-    } finally {
-      setLoadingRowSubmissions((prev) => ({ ...prev, [taskId]: false }));
-    }
-  };
 
   const openCreate = () => { setForm(EMPTY_TASK); setEditing(null); setModal("form"); };
   const openEdit = (t) => {
@@ -284,6 +264,10 @@ export default function ProjectDetail() {
     setSelectedTask(null);
     setTaskSubmissions([]);
     setSelectedSubmissionId("");
+    setAdminComment("");
+    setAdminCommentSaving(false);
+    setShouldFocusComment(false);
+    setIsEditingComment(false);
     if (submissionAudioUrl) {
       URL.revokeObjectURL(submissionAudioUrl);
       setSubmissionAudioUrl(null);
@@ -309,12 +293,15 @@ export default function ProjectDetail() {
     }
   };
 
-  const openSubmission = async (taskId, { preferredSubmissionId } = {}) => {
+  const openSubmission = async (taskId, { preferredSubmissionId, focusComment = false } = {}) => {
     setModal("submission");
     setSubmissionLoading(true);
     setSelectedTask(null);
     setTaskSubmissions([]);
     setSelectedSubmissionId("");
+    setAdminComment("");
+    setIsEditingComment(false);
+    setShouldFocusComment(Boolean(focusComment));
 
     if (submissionAudioUrl) {
       URL.revokeObjectURL(submissionAudioUrl);
@@ -339,6 +326,9 @@ export default function ProjectDetail() {
         const initialSubmission = selectedById || firstAudioSubmission || submissions[0];
 
         setSelectedSubmissionId(initialSubmission._id);
+        const initialComment = initialSubmission.reportedIssue?.adminComment || "";
+        setAdminComment(initialComment);
+        setIsEditingComment(!initialComment);
         if (initialSubmission.audio?.publicId || initialSubmission.audio?.url) {
           const audioResponse = await streamSubmissionAudio(initialSubmission._id);
           const audioBlobUrl = URL.createObjectURL(audioResponse.data);
@@ -354,34 +344,87 @@ export default function ProjectDetail() {
   };
 
   const selectedSubmission = taskSubmissions.find((s) => s._id === selectedSubmissionId) || null;
+  const allSubmissionRows = useMemo(() => {
+    const rows = [];
+    tasks.forEach((task) => {
+      const entries = submissionsByTaskId[task._id] || [];
+      entries.forEach((submission) => {
+        rows.push({ task, submission });
+      });
+    });
+    return rows;
+  }, [tasks, submissionsByTaskId]);
 
-  const getFlaggedSubmissionsForTask = (taskId) => {
-    const rowSubmissions = submissionsByTaskId[taskId] || [];
-    return rowSubmissions.filter((submission) => submission.reportedIssue?.flagged);
-  };
+  const submissionRows = useMemo(
+    () => allSubmissionRows.filter(({ submission }) => submission.audio?.url || submission.audio?.publicId),
+    [allSubmissionRows]
+  );
 
-  const getAudioSubmissionsForTask = (taskId) => {
-    const rowSubmissions = submissionsByTaskId[taskId] || [];
-    return rowSubmissions.filter((submission) => submission.audio?.url || submission.audio?.publicId);
-  };
+  const flaggedRows = useMemo(
+    () => allSubmissionRows.filter(({ submission }) => submission.reportedIssue?.flagged),
+    [allSubmissionRows]
+  );
 
-  const displayedTasks = useMemo(() => {
+  const searchQuery = submissionSearch.trim().toLowerCase();
+
+  const filteredSubmissionRows = useMemo(() => {
+    if (!searchQuery) return submissionRows;
+    return submissionRows.filter(({ task, submission }) => {
+      const values = [
+        task.taskId,
+        task.type,
+        submission.userId?.name,
+        submission.userId?.email,
+        submission.status,
+      ];
+      return values.some((value) => value?.toLowerCase().includes(searchQuery));
+    });
+  }, [submissionRows, searchQuery]);
+
+  const filteredFlaggedRows = useMemo(() => {
+    if (!searchQuery) return flaggedRows;
+    return flaggedRows.filter(({ task, submission }) => {
+      const values = [
+        task.taskId,
+        task.type,
+        submission.userId?.name,
+        submission.userId?.email,
+        submission.reportedIssue?.note,
+        submission.reportedIssue?.adminComment,
+      ];
+      return values.some((value) => value?.toLowerCase().includes(searchQuery));
+    });
+  }, [flaggedRows, searchQuery]);
+
+  const submissionPagination = useMemo(
+    () => paginateRows(filteredSubmissionRows, submissionPage),
+    [filteredSubmissionRows, submissionPage]
+  );
+  const flagPagination = useMemo(
+    () => paginateRows(filteredFlaggedRows, flagPage),
+    [filteredFlaggedRows, flagPage]
+  );
+
+  const {
+    rows: paginatedSubmissionRows,
+    currentPage: currentSubmissionPage,
+    totalPages: totalSubmissionPages,
+  } = submissionPagination;
+  const {
+    rows: paginatedFlaggedRows,
+    currentPage: currentFlagPage,
+    totalPages: totalFlagPages,
+  } = flagPagination;
+
+  useEffect(() => {
     if (activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS) {
-      return tasks.filter((task) => {
-        const rowSubmissions = submissionsByTaskId[task._id] || [];
-        return rowSubmissions.some((submission) => submission.audio?.url || submission.audio?.publicId);
-      });
+      setSubmissionPage(1);
+    } else if (activeView === ADMIN_PROJECT_VIEWS.FLAGS) {
+      setFlagPage(1);
     }
+  }, [searchQuery, activeView]);
 
-    if (activeView === ADMIN_PROJECT_VIEWS.FLAGS) {
-      return tasks.filter((task) => {
-        const rowSubmissions = submissionsByTaskId[task._id] || [];
-        return rowSubmissions.some((submission) => submission.reportedIssue?.flagged);
-      });
-    }
-
-    return tasks;
-  }, [tasks, activeView, submissionsByTaskId]);
+  const displayedTasks = useMemo(() => tasks, [tasks]);
 
   const handleSave = async (e) => {
     e.preventDefault(); setSaving(true);
@@ -406,6 +449,68 @@ export default function ProjectDetail() {
     if (!confirm("Delete this task?")) return;
     try { await deleteTask(tid); toast.success("Task deleted"); fetchProject(); }
     catch { toast.error("Delete failed"); }
+  };
+
+  const handleAdminCommentSubmit = async () => {
+    if (!selectedSubmission?._id) {
+      toast.error("Select a submission to comment on.");
+      return;
+    }
+
+    if (!selectedSubmission.reportedIssue?.flagged) {
+      toast.error("Only flagged submissions can have admin comments.");
+      return;
+    }
+
+    const trimmedComment = adminComment.trim();
+    if (!trimmedComment) {
+      toast.error("Please enter a comment before saving.");
+      return;
+    }
+
+    setAdminCommentSaving(true);
+    try {
+      await addAdminCommentToFlag(selectedSubmission._id, { adminComment: trimmedComment });
+      toast.success("Admin comment added!");
+      setAdminComment(trimmedComment);
+      setIsEditingComment(false);
+
+      setTaskSubmissions((prev) =>
+        prev.map((submission) =>
+          submission._id === selectedSubmission._id
+            ? {
+                ...submission,
+                reportedIssue: {
+                  ...(submission.reportedIssue || {}),
+                  adminComment: trimmedComment,
+                },
+              }
+            : submission
+        )
+      );
+
+      if (selectedTask?._id) {
+        setSubmissionsByTaskId((prev) => {
+          const taskEntries = prev[selectedTask._id] || [];
+          const nextTaskEntries = taskEntries.map((submission) =>
+            submission._id === selectedSubmission._id
+              ? {
+                  ...submission,
+                  reportedIssue: {
+                    ...(submission.reportedIssue || {}),
+                    adminComment: trimmedComment,
+                  },
+                }
+              : submission
+          );
+          return { ...prev, [selectedTask._id]: nextTaskEntries };
+        });
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to add comment");
+    } finally {
+      setAdminCommentSaving(false);
+    }
   };
 
   const handleExcelSelection = async (event) => {
@@ -446,6 +551,11 @@ export default function ProjectDetail() {
       dataTableInstanceRef.current = null;
     }
     setActiveView(nextView);
+    if (nextView === ADMIN_PROJECT_VIEWS.SUBMISSIONS) {
+      setSubmissionPage(1);
+    } else if (nextView === ADMIN_PROJECT_VIEWS.FLAGS) {
+      setFlagPage(1);
+    }
   };
 
   return (
@@ -519,299 +629,407 @@ export default function ProjectDetail() {
             </div>
           </div>
 
+          {activeView !== ADMIN_PROJECT_VIEWS.TASKS && (
+            <div className="mb-3 flex justify-end">
+              <input
+                type="text"
+                value={submissionSearch}
+                onChange={(e) => setSubmissionSearch(e.target.value)}
+                placeholder={activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS ? "Search submissions…" : "Search flagged submissions…"}
+                className="input w-full sm:w-64"
+              />
+            </div>
+          )}
+
           <div className="admin-datatable card p-0 overflow-hidden border border-[#c3cdc0] shadow-sm">
-            {/* Mobile card list */}
             <div className="sm:hidden divide-y divide-[#d2dad0]">
-              {displayedTasks.map((t) => (
-                <div key={t._id} className="p-4 space-y-2 hover:bg-primary-50/70 transition">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-xs text-primary-700 bg-primary-100 px-2 py-0.5 rounded truncate">{t.taskId}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const preferredSubmissionId = activeView === ADMIN_PROJECT_VIEWS.FLAGS
-                          ? (selectedFlagByTaskId[t._id] || getFlaggedSubmissionsForTask(t._id)[0]?._id)
-                          : activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS
-                            ? (selectedSubmissionByTaskId[t._id] || getAudioSubmissionsForTask(t._id)[0]?._id)
-                            : undefined;
-                        openSubmission(t._id, { preferredSubmissionId });
-                      }}
-                      className="text-[11px] text-primary-800 hover:text-primary-900"
-                    >
-                      Details
-                    </button>
-                  </div>
-                  <p className="text-xs text-black/80 bg-white border border-[#d1d9ce] px-2 py-0.5 rounded w-fit">{t.type}</p>
-
-                  {activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS ? (
-                    (() => {
-                      const rowSubmissions = getAudioSubmissionsForTask(t._id);
-                      const rowSelectedId = selectedSubmissionByTaskId[t._id] || rowSubmissions[0]?._id || "";
-                      const rowAudioUrl = audioUrlByTaskId[t._id];
-
-                      return rowSubmissions.length ? (
-                        <>
-                          <select
-                            className="input !h-8 !py-1 !px-2 !text-xs"
-                            value={rowSelectedId}
-                            onChange={(e) => handleRowSubmissionChange(t._id, e.target.value)}
-                          >
-                            {rowSubmissions.map((s) => (
-                              <option key={s._id} value={s._id}>
-                                {s.userId?.name || "Unknown user"} ({s.userId?.email || "no-email"})
-                              </option>
-                            ))}
-                          </select>
-
-                          {rowAudioUrl ? (
-                            <audio controls src={rowAudioUrl} className="w-full h-8" />
-                          ) : (
-                            <p className="text-xs text-black/60">
-                              {loadingRowSubmissions[t._id] ? "Loading audio..." : "No audio for selected user"}
-                            </p>
-                          )}
-                        </>
-                      ) : (
-                        <p className="text-xs text-black/60">No submissions yet for this task.</p>
-                      );
-                    })()
-                  ) : activeView === ADMIN_PROJECT_VIEWS.FLAGS ? (
-                    (() => {
-                      const rowFlaggedSubmissions = getFlaggedSubmissionsForTask(t._id);
-                      const selectedFlagSubmissionId = selectedFlagByTaskId[t._id] || rowFlaggedSubmissions[0]?._id || "";
-                      const selectedFlagSubmission = rowFlaggedSubmissions.find((s) => s._id === selectedFlagSubmissionId) || null;
-
-                      return rowFlaggedSubmissions.length ? (
-                        <>
-                          <select
-                            className="input !h-8 !py-1 !px-2 !text-xs"
-                            value={selectedFlagSubmissionId}
-                            onChange={(e) => setSelectedFlagByTaskId((prev) => ({ ...prev, [t._id]: e.target.value }))}
-                          >
-                            {rowFlaggedSubmissions.map((s) => (
-                              <option key={s._id} value={s._id}>
-                                {s.userId?.name || "Unknown user"} ({s.userId?.email || "no-email"})
-                              </option>
-                            ))}
-                          </select>
-
-                          <p className="text-xs text-black/80 whitespace-pre-wrap break-all">
-                            {selectedFlagSubmission?.reportedIssue?.note || "No comment provided"}
-                          </p>
-                          <p className="text-[11px] text-black/55">
-                            Flagged at {formatDateTime(selectedFlagSubmission?.reportedIssue?.reportedAt)}
-                          </p>
-                        </>
-                      ) : (
-                        <p className="text-xs text-black/60">No flags yet for this task.</p>
-                      );
-                    })()
-                  ) : (
-                    <>
+              {activeView === ADMIN_PROJECT_VIEWS.TASKS ? (
+                <>
+                  {displayedTasks.map((t) => (
+                    <div key={t._id} className="p-4 space-y-2 hover:bg-primary-50/70 transition">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-xs text-primary-700 bg-primary-100 px-2 py-0.5 rounded truncate">{t.taskId}</span>
+                        <button
+                          type="button"
+                          onClick={() => openSubmission(t._id)}
+                          className="text-[11px] text-primary-800 hover:text-primary-900"
+                        >
+                          Details
+                        </button>
+                      </div>
+                      <p className="text-xs text-black/80 bg-white border border-[#d1d9ce] px-2 py-0.5 rounded w-fit">{t.type}</p>
                       <p className="text-xs text-black/80 line-clamp-2">{t.text}</p>
                       <p className="text-xs text-black/65 truncate">{t.prompt}</p>
-                    </>
+                      <div className="flex justify-end gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(t)}
+                          className="px-2 py-1.5 rounded bg-[#dbe7d8] text-black hover:bg-[#c7d7c4] transition text-[11px] font-semibold inline-flex items-center gap-1"
+                        >
+                          <Pencil size={13} /> Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(t._id)}
+                          className="px-2 py-1.5 rounded hover:bg-red-100 text-black/70 hover:text-red-700 transition text-[11px] font-semibold inline-flex items-center gap-1"
+                        >
+                          <Trash2 size={13} /> Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {!displayedTasks.length && (
+                    <div className="px-4 py-12 text-center text-black/60">
+                      <Mic2 size={32} className="mx-auto mb-2 opacity-30" />
+                      No tasks yet. Add your first task.
+                    </div>
                   )}
-
-                  <div className="flex justify-end gap-1 shrink-0">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); openEdit(t); }}
-                      className="p-1.5 rounded hover:bg-primary-100 text-black/60 hover:text-black transition"
-                    >
-                      <Pencil size={13} />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDelete(t._id); }}
-                      className="p-1.5 rounded hover:bg-red-100 text-black/60 hover:text-red-700 transition"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {!displayedTasks.length && (
-                <div className="px-4 py-12 text-center text-black/60">
-                  <Mic2 size={32} className="mx-auto mb-2 opacity-30" />
-                  {activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS
-                    ? "No tasks with audio submissions yet."
-                    : activeView === ADMIN_PROJECT_VIEWS.FLAGS
-                      ? "No flagged tasks yet."
-                      : "No tasks yet. Add your first task."}
-                </div>
+                </>
+              ) : activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS ? (
+                <>
+                  {submissionsLoading && !submissionRows.length ? (
+                    <div className="px-4 py-12 text-center text-black/60 space-y-3">
+                      <Spinner />
+                      <p className="text-sm">Loading submissions…</p>
+                    </div>
+                  ) : filteredSubmissionRows.length ? (
+                    paginatedSubmissionRows.map(({ task: rowTask, submission }) => (
+                      <div key={submission._id} className="p-4 space-y-2 hover:bg-primary-50/70 transition">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-xs text-primary-700 bg-primary-100 px-2 py-0.5 rounded truncate">{rowTask.taskId}</span>
+                        </div>
+                        <p className="text-xs text-black/80 bg-white border border-[#d1d9ce] px-2 py-0.5 rounded w-fit">{rowTask.type}</p>
+                        <div>
+                          <p className="text-sm text-black/80">{submission.userId?.name || "Unknown user"}</p>
+                          <p className="text-[11px] text-black/60">{submission.userId?.email || "no-email"}</p>
+                        </div>
+                        <div className="text-xs text-black/70 font-semibold">Status: {submission.status || "pending"}</div>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openSubmission(rowTask._id, { preferredSubmissionId: submission._id })}
+                            className="text-[11px] font-semibold text-primary-800 hover:text-primary-900"
+                          >
+                            Details
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-4 py-12 text-center text-black/60">
+                      <Mic2 size={32} className="mx-auto mb-2 opacity-30" />
+                      {searchQuery ? "No submissions match your search." : "No submissions recorded yet."}
+                    </div>
+                  )}
+                  {filteredSubmissionRows.length > 0 && totalSubmissionPages > 1 && (
+                    <PaginationControls
+                      currentPage={currentSubmissionPage}
+                      totalPages={totalSubmissionPages}
+                      onPrev={() => setSubmissionPage((prev) => Math.max(1, prev - 1))}
+                      onNext={() => setSubmissionPage((prev) => Math.min(totalSubmissionPages, prev + 1))}
+                      className="bg-white"
+                    />
+                  )}
+                </>
+              ) : (
+                <>
+                  {submissionsLoading && !flaggedRows.length ? (
+                    <div className="px-4 py-12 text-center text-black/60 space-y-3">
+                      <Spinner />
+                      <p className="text-sm">Loading flagged submissions…</p>
+                    </div>
+                  ) : filteredFlaggedRows.length ? (
+                    paginatedFlaggedRows.map(({ task: rowTask, submission }) => (
+                      <div key={submission._id} className="p-4 space-y-2 hover:bg-primary-50/70 transition">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-xs text-primary-700 bg-primary-100 px-2 py-0.5 rounded truncate">{rowTask.taskId}</span>
+                          <span className="text-[11px] text-[#8d3d2e] bg-[#fce9e3] px-2 py-0.5 rounded-full">Flagged</span>
+                        </div>
+                        <div>
+                          <p className="text-sm text-black/80">{submission.userId?.name || "Unknown user"}</p>
+                          <p className="text-[11px] text-black/60">{submission.userId?.email || "no-email"}</p>
+                        </div>
+                        <div className="rounded-lg border border-[#e5ccc3] bg-[#f8efec] px-3 py-2">
+                          <p className="text-[11px] text-[#8d3d2e] font-semibold">User Flag Details</p>
+                          <p className="text-xs text-black/80 whitespace-pre-wrap break-all">
+                            {submission.reportedIssue?.note || "No comment provided"}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-[#dcd5c9] bg-white px-3 py-2">
+                          <p className="text-[11px] font-semibold text-black/70">Admin Comment</p>
+                          <p className="text-xs text-black/80 whitespace-pre-wrap break-all">
+                            {submission.reportedIssue?.adminComment || "No admin comment yet."}
+                          </p>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openSubmission(rowTask._id, { preferredSubmissionId: submission._id })}
+                            className="text-[11px] font-semibold text-primary-800 hover:text-primary-900"
+                          >
+                            Details
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openSubmission(rowTask._id, { preferredSubmissionId: submission._id, focusComment: true })}
+                            className="text-[11px] font-semibold text-[#8d3d2e] hover:text-[#62291f]"
+                          >
+                            Comment
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-4 py-12 text-center text-black/60">
+                      <Mic2 size={32} className="mx-auto mb-2 opacity-30" />
+                      {searchQuery ? "No flagged submissions match your search." : "No flagged submissions yet."}
+                    </div>
+                  )}
+                  {filteredFlaggedRows.length > 0 && totalFlagPages > 1 && (
+                    <PaginationControls
+                      currentPage={currentFlagPage}
+                      totalPages={totalFlagPages}
+                      onPrev={() => setFlagPage((prev) => Math.max(1, prev - 1))}
+                      onNext={() => setFlagPage((prev) => Math.min(totalFlagPages, prev + 1))}
+                      className="bg-white"
+                    />
+                  )}
+                </>
               )}
             </div>
 
-            {/* Desktop table */}
             <div className="hidden sm:block">
-            <table ref={desktopTableRef} className="w-full text-sm table-fixed display">
-              <thead>
-                <tr className="border-b border-[#d2dad0] bg-primary-50/70">
-                  <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[12%]">Task ID</th>
-                  <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[15%]">Type</th>
-                  <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[25%]">
-                    {activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS
-                      ? "Submission User"
-                      : activeView === ADMIN_PROJECT_VIEWS.FLAGS
-                        ? "Flagged By"
-                        : "Text"}
-                  </th>
-                  <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[20%]">
-                    {activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS
-                      ? "Submission Audio"
-                      : activeView === ADMIN_PROJECT_VIEWS.FLAGS
-                        ? "Comment"
-                        : "Prompt"}
-                  </th>
-                  <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[8%]">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayedTasks.map((t) => {
-                  const rowSubmissions = getAudioSubmissionsForTask(t._id);
-                  const rowSelectedId = selectedSubmissionByTaskId[t._id] || rowSubmissions[0]?._id || "";
-                  const hasSubmissionView = rowSubmissions.length > 0;
-                  const rowFlaggedSubmissions = getFlaggedSubmissionsForTask(t._id);
-                  const rowSelectedFlagId = selectedFlagByTaskId[t._id] || rowFlaggedSubmissions[0]?._id || "";
-                  const selectedFlagSubmission = rowFlaggedSubmissions.find((submission) => submission._id === rowSelectedFlagId) || null;
-                  const rowAudioUrl = audioUrlByTaskId[t._id];
-
-                  return (
-                    <tr
-                      key={t._id}
-                      className={`border-b border-[#d8e0d5] hover:bg-primary-50/60 transition ${
-                        activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS || activeView === ADMIN_PROJECT_VIEWS.FLAGS ? "cursor-pointer" : ""
-                      }`}
-                      onClick={() => {
-                        if (activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS || activeView === ADMIN_PROJECT_VIEWS.FLAGS) {
-                          const preferredSubmissionId = activeView === ADMIN_PROJECT_VIEWS.FLAGS
-                            ? rowSelectedFlagId
-                            : rowSelectedId;
-                          openSubmission(t._id, { preferredSubmissionId });
-                        }
-                      }}
-                      title={activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS || activeView === ADMIN_PROJECT_VIEWS.FLAGS ? "View task submission" : "Task details"}
-                    >
-                      <td className="px-2 py-3.5 w-[12%]">
-                        <span className="font-mono text-xs text-primary-700 bg-primary-100 px-1.5 py-0.5 rounded block truncate">{t.taskId}</span>
-                      </td>
-                      <td className="px-2 py-3.5 w-[15%]">
-                        <span className="text-xs text-black/80 bg-white border border-[#d1d9ce] px-1.5 py-0.5 rounded block truncate">{t.type}</span>
-                      </td>
-                      <td className="px-2 py-3.5 w-[25%]">
-                        {activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS ? (
-                          hasSubmissionView ? (
-                            <select
-                              className="input !h-8 !py-1 !px-2 !text-xs"
-                              value={rowSelectedId}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                handleRowSubmissionChange(t._id, e.target.value);
-                              }}
-                            >
-                              {rowSubmissions.map((s) => (
-                                <option key={s._id} value={s._id}>
-                                  {s.userId?.name || "Unknown user"} ({s.userId?.email || "no-email"})
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            <div className="text-black/60 text-xs">No submissions yet</div>
-                          )
-                        ) : activeView === ADMIN_PROJECT_VIEWS.FLAGS ? (
-                          rowFlaggedSubmissions.length ? (
-                            <select
-                              className="input !h-8 !py-1 !px-2 !text-xs"
-                              value={rowSelectedFlagId}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                setSelectedFlagByTaskId((prev) => ({ ...prev, [t._id]: e.target.value }));
-                              }}
-                            >
-                              {rowFlaggedSubmissions.map((submission) => (
-                                <option key={submission._id} value={submission._id}>
-                                  {submission.userId?.name || "Unknown user"} ({submission.userId?.email || "no-email"})
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            <div className="text-black/60 text-xs">No flags yet</div>
-                          )
-                        ) : (
-                          <div className="text-black/80 text-xs truncate" title={t.text}>{t.text}</div>
-                        )}
-                      </td>
-                      <td className="px-2 py-3.5 w-[20%]">
-                        {activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS ? (
-                          hasSubmissionView ? (
-                            rowAudioUrl ? (
-                              <audio
-                                controls
-                                src={rowAudioUrl}
-                                className="w-full h-8"
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            ) : (
-                              <div className="text-black/60 text-xs">
-                                {loadingRowSubmissions[t._id] ? "Loading audio..." : "No audio for selected user"}
-                              </div>
-                            )
-                          ) : (
-                            <div className="text-black/60 text-xs">No audio</div>
-                          )
-                        ) : activeView === ADMIN_PROJECT_VIEWS.FLAGS ? (
-                          selectedFlagSubmission ? (
-                            <div className="space-y-1">
-                              <p className="text-black/80 text-xs whitespace-pre-wrap break-all line-clamp-2" title={selectedFlagSubmission.reportedIssue?.note || "No comment"}>
-                                {selectedFlagSubmission.reportedIssue?.note || "No comment provided"}
-                              </p>
-                              <p className="text-black/55 text-[11px] truncate" title={formatDateTime(selectedFlagSubmission.reportedIssue?.reportedAt)}>
-                                {formatDateTime(selectedFlagSubmission.reportedIssue?.reportedAt)}
-                              </p>
-                            </div>
-                          ) : (
-                            <div className="text-black/60 text-xs">No flag comment</div>
-                          )
-                        ) : (
-                          <div className="text-black/65 text-xs truncate" title={t.prompt}>{t.prompt}</div>
-                        )}
-                      </td>
-                      <td className="px-1 py-3.5 w-[8%]">
-                        <div className="flex gap-0.5">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); openEdit(t); }}
-                            className="p-1 rounded hover:bg-primary-100 text-black/60 hover:text-black transition"
-                            title="Edit"
-                          >
-                            <Pencil size={12} />
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleDelete(t._id); }}
-                            className="p-1 rounded hover:bg-red-100 text-black/60 hover:text-red-700 transition"
-                            title="Delete"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      </td>
+              {activeView === ADMIN_PROJECT_VIEWS.TASKS ? (
+                <table ref={desktopTableRef} className="w-full text-sm table-fixed display">
+                  <thead>
+                    <tr className="border-b border-[#d2dad0] bg-primary-50/70">
+                      <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[12%]">Task ID</th>
+                      <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[15%]">Type</th>
+                      <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[25%]">Text</th>
+                      <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[20%]">Prompt</th>
+                      <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[10%]">Action</th>
                     </tr>
-                  );
-                })}
-                {!displayedTasks.length && (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-12 text-center text-black/60">
-                      <Mic2 size={32} className="mx-auto mb-2 opacity-30" />
-                      {activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS
-                        ? "No tasks with audio submissions yet."
-                        : activeView === ADMIN_PROJECT_VIEWS.FLAGS
-                          ? "No flagged tasks yet."
-                          : "No tasks yet. Add your first task."}
-                    </td>
-                  </tr>
+                  </thead>
+                  <tbody>
+                    {displayedTasks.map((t) => (
+                      <tr key={t._id} className="border-b border-[#d8e0d5] hover:bg-primary-50/60 transition">
+                        <td className="px-2 py-3.5 w-[12%]">
+                          <span className="font-mono text-xs text-primary-700 bg-primary-100 px-1.5 py-0.5 rounded block truncate">{t.taskId}</span>
+                        </td>
+                        <td className="px-2 py-3.5 w-[15%]">
+                          <span className="text-xs text-black/80 bg-white border border-[#d1d9ce] px-1.5 py-0.5 rounded block truncate">{t.type}</span>
+                        </td>
+                        <td className="px-2 py-3.5 w-[25%]">
+                          <div className="text-black/80 text-xs truncate" title={t.text}>{t.text}</div>
+                        </td>
+                        <td className="px-2 py-3.5 w-[20%]">
+                          <div className="text-black/65 text-xs truncate" title={t.prompt}>{t.prompt}</div>
+                        </td>
+                        <td className="px-2 py-3.5 w-[10%]">
+                          <div className="flex justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => openEdit(t)}
+                              className="px-2 py-1 rounded bg-[#dbe7d8] text-black hover:bg-[#c7d7c4] transition text-[11px] font-semibold inline-flex items-center gap-1"
+                              title="Edit task"
+                            >
+                              <Pencil size={12} /> Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(t._id)}
+                              className="px-2 py-1 rounded border border-transparent hover:bg-red-100 text-black/70 hover:text-red-700 transition text-[11px] font-semibold inline-flex items-center gap-1"
+                              title="Delete task"
+                            >
+                              <Trash2 size={12} /> Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {!displayedTasks.length && (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-12 text-center text-black/60">
+                          <Mic2 size={32} className="mx-auto mb-2 opacity-30" />
+                          No tasks yet. Add your first task.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              ) : activeView === ADMIN_PROJECT_VIEWS.SUBMISSIONS ? (
+                <>
+                <table className="w-full text-sm table-fixed">
+                  <thead>
+                    <tr className="border-b border-[#d2dad0] bg-primary-50/70">
+                      <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[12%]">Task ID</th>
+                      <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[15%]">Type</th>
+                      <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[25%]">User</th>
+                      <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[20%]">Status</th>
+                      <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[12%]">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {submissionsLoading && !submissionRows.length ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-10 text-center text-black/60">
+                          <Spinner />
+                          <p className="mt-2 text-sm">Loading submissions…</p>
+                        </td>
+                      </tr>
+                    ) : filteredSubmissionRows.length ? (
+                      paginatedSubmissionRows.map(({ task: rowTask, submission }) => (
+                        <tr
+                          key={submission._id}
+                          className="border-b border-[#d8e0d5] hover:bg-primary-50/60 transition cursor-pointer"
+                          onClick={() => openSubmission(rowTask._id, { preferredSubmissionId: submission._id })}
+                          title="View submission details"
+                        >
+                          <td className="px-2 py-3.5 w-[12%]">
+                            <span className="font-mono text-xs text-primary-700 bg-primary-100 px-1.5 py-0.5 rounded block truncate">{rowTask.taskId}</span>
+                          </td>
+                          <td className="px-2 py-3.5 w-[15%]">
+                            <span className="text-xs text-black/80 bg-white border border-[#d1d9ce] px-1.5 py-0.5 rounded block truncate">{rowTask.type}</span>
+                          </td>
+                          <td className="px-2 py-3.5 w-[25%]">
+                            <div className="text-black/80 text-xs" title={submission.userId?.email}>
+                              {submission.userId?.name || "Unknown user"}
+                            </div>
+                            <div className="text-black/55 text-[11px] truncate">{submission.userId?.email || "no-email"}</div>
+                          </td>
+                          <td className="px-2 py-3.5 w-[20%]">
+                            <div className="text-black/80 text-xs capitalize">{submission.status || "pending"}</div>
+                          </td>
+                          <td className="px-2 py-3.5 w-[12%]">
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openSubmission(rowTask._id, { preferredSubmissionId: submission._id });
+                                }}
+                                className="text-[11px] font-semibold text-primary-800 hover:text-primary-900"
+                              >
+                                Details
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-12 text-center text-black/60">
+                          <Mic2 size={32} className="mx-auto mb-2 opacity-30" />
+                          {searchQuery ? "No submissions match your search." : "No submissions recorded yet."}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+                {filteredSubmissionRows.length > 0 && totalSubmissionPages > 1 && (
+                  <PaginationControls
+                    currentPage={currentSubmissionPage}
+                    totalPages={totalSubmissionPages}
+                    onPrev={() => setSubmissionPage((prev) => Math.max(1, prev - 1))}
+                    onNext={() => setSubmissionPage((prev) => Math.min(totalSubmissionPages, prev + 1))}
+                    className="bg-[#f6f9f3]"
+                  />
                 )}
-              </tbody>
-            </table>
+                </>
+              ) : (
+                <>
+                <table className="w-full text-sm table-fixed">
+                  <thead>
+                    <tr className="border-b border-[#d2dad0] bg-primary-50/70">
+                      <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[12%]">Task ID</th>
+                      <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[20%]">User</th>
+                      <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[26%]">Flag Note</th>
+                      <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[22%]">Admin Comment</th>
+                      <th className="text-left px-2 py-3 text-xs font-semibold text-black/60 uppercase tracking-wide w-[12%]">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {submissionsLoading && !flaggedRows.length ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-10 text-center text-black/60">
+                          <Spinner />
+                          <p className="mt-2 text-sm">Loading flagged submissions…</p>
+                        </td>
+                      </tr>
+                    ) : filteredFlaggedRows.length ? (
+                      paginatedFlaggedRows.map(({ task: rowTask, submission }) => (
+                        <tr
+                          key={submission._id}
+                          className="border-b border-[#d8e0d5] hover:bg-primary-50/60 transition cursor-pointer"
+                          onClick={() => openSubmission(rowTask._id, { preferredSubmissionId: submission._id })}
+                          title="Review flagged submission"
+                        >
+                          <td className="px-2 py-3.5 w-[12%]">
+                            <span className="font-mono text-xs text-primary-700 bg-primary-100 px-1.5 py-0.5 rounded block truncate">{rowTask.taskId}</span>
+                          </td>
+                          <td className="px-2 py-3.5 w-[20%]">
+                            <div className="text-black/80 text-xs" title={submission.userId?.email}>
+                              {submission.userId?.name || "Unknown user"}
+                            </div>
+                            <div className="text-black/55 text-[11px] truncate">{submission.userId?.email || "no-email"}</div>
+                          </td>
+                          <td className="px-2 py-3.5 w-[26%]">
+                            <p className="text-black/80 text-xs whitespace-pre-wrap break-all" title={submission.reportedIssue?.note || "No comment"}>
+                              {submission.reportedIssue?.note || "No comment provided"}
+                            </p>
+                          </td>
+                          <td className="px-2 py-3.5 w-[22%]">
+                            <p className="text-black/80 text-xs whitespace-pre-wrap break-all" title={submission.reportedIssue?.adminComment || "No admin comment"}>
+                              {submission.reportedIssue?.adminComment || "No admin comment yet."}
+                            </p>
+                          </td>
+                          <td className="px-2 py-3.5 w-[12%]">
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openSubmission(rowTask._id, { preferredSubmissionId: submission._id });
+                                }}
+                                className="text-[11px] font-semibold text-primary-800 hover:text-primary-900"
+                              >
+                                Details
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openSubmission(rowTask._id, { preferredSubmissionId: submission._id, focusComment: true });
+                                }}
+                                className="text-[11px] font-semibold text-[#8d3d2e] hover:text-[#62291f]"
+                              >
+                                Comment
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-12 text-center text-black/60">
+                          <Mic2 size={32} className="mx-auto mb-2 opacity-30" />
+                          {searchQuery ? "No flagged submissions match your search." : "No flagged submissions yet."}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+                {filteredFlaggedRows.length > 0 && totalFlagPages > 1 && (
+                  <PaginationControls
+                    currentPage={currentFlagPage}
+                    totalPages={totalFlagPages}
+                    onPrev={() => setFlagPage((prev) => Math.max(1, prev - 1))}
+                    onNext={() => setFlagPage((prev) => Math.min(totalFlagPages, prev + 1))}
+                    className="bg-[#f6f9f3]"
+                  />
+                )}
+                </>
+              )}
             </div>
           </div>
         </>
@@ -904,6 +1122,9 @@ export default function ProjectDetail() {
                     onChange={async (e) => {
                       const nextId = e.target.value;
                       setSelectedSubmissionId(nextId);
+                      const nextSubmission = taskSubmissions.find((submission) => submission._id === nextId);
+                      setAdminComment(nextSubmission?.reportedIssue?.adminComment || "");
+                      setIsEditingComment(!(nextSubmission?.reportedIssue?.adminComment));
                       await loadSubmissionAudio(nextId);
                     }}
                   >
@@ -920,13 +1141,72 @@ export default function ProjectDetail() {
 
               {selectedSubmission?.reportedIssue?.flagged && (
                 <div className="rounded-2xl border border-[#d3b9b1] bg-[#f8efec] p-4">
-                  <p className="label mb-2 text-[#8d3d2e]">Flag Reason</p>
+                  <p className="label mb-2 text-[#8d3d2e]">User's Flag Reason</p>
                   <p className="text-sm text-black/80 whitespace-pre-wrap break-all">
                     {selectedSubmission.reportedIssue?.note || "No reason provided."}
                   </p>
                   <p className="text-xs text-black/55 mt-2">
                     Reported at {formatDateTime(selectedSubmission.reportedIssue?.reportedAt)}
                   </p>
+
+                  <div className="border-t border-[#e5ccc3] pt-4 mt-4">
+                    <p className="label mb-2 text-[#8d3d2e] flex items-center gap-2">
+                      <MessageSquare size={16} /> Admin Comment
+                    </p>
+                    {selectedSubmission.reportedIssue?.adminComment && !isEditingComment ? (
+                      <div className="space-y-3">
+                        <div className="p-3 bg-white rounded border border-[#e5ccc3]">
+                          <p className="text-sm text-black/80 whitespace-pre-wrap break-all">
+                            {selectedSubmission.reportedIssue.adminComment}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsEditingComment(true);
+                            setShouldFocusComment(true);
+                          }}
+                          className="btn-secondary w-full sm:w-auto"
+                        >
+                          Edit Comment
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <textarea
+                          ref={commentFieldRef}
+                          value={adminComment}
+                          onChange={(e) => setAdminComment(e.target.value)}
+                          className="input resize-none"
+                          rows={3}
+                          placeholder="Add your comment about this flag..."
+                        />
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          {selectedSubmission.reportedIssue?.adminComment && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAdminComment(selectedSubmission.reportedIssue?.adminComment || "");
+                                setIsEditingComment(false);
+                              }}
+                              className="btn-secondary w-full sm:w-auto"
+                              disabled={adminCommentSaving}
+                            >
+                              Cancel
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={handleAdminCommentSubmit}
+                            disabled={adminCommentSaving || !adminComment.trim()}
+                            className="btn-primary w-full sm:w-auto"
+                          >
+                            {adminCommentSaving ? "Saving..." : selectedSubmission.reportedIssue?.adminComment ? "Update Comment" : "Add Comment"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 

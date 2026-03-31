@@ -137,6 +137,20 @@ const getTaskSubmissionById = async (submissionId) => {
   return TaskSubmission.findById(submissionId).populate("userId", "name email");
 };
 
+const addAdminCommentToFlag = async (submissionId, comment, adminId) => {
+  return TaskSubmission.findByIdAndUpdate(
+    submissionId,
+    {
+      $set: {
+        "reportedIssue.adminComment": comment,
+        "reportedIssue.adminCommentedAt": new Date(),
+        "reportedIssue.adminCommentedBy": adminId,
+      },
+    },
+    { new: true }
+  ).populate("userId", "name email");
+};
+
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 
 const getDashboardStats = async () => {
@@ -173,5 +187,6 @@ module.exports = {
   getAssignedProjectIdsByUser,
   getTaskSubmissions,
   getTaskSubmissionById,
+  addAdminCommentToFlag,
   getDashboardStats,
 };

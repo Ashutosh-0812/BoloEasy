@@ -183,7 +183,7 @@ export default function TaskDetail() {
     </div>
   );
 
-  const submitAudioAndMaybeMove = async ({ moveToNext = true } = {}) => {
+  const uploadRecordedAudio = async ({ background = false } = {}) => {
     if (recording) {
       toast.error("Stop recording before submitting.");
       return false;
@@ -194,24 +194,44 @@ export default function TaskDetail() {
       return false;
     }
 
+    const blob = audioBlob;
+    const currentTaskId = id;
+    const currentProjectId = task.projectId;
+    const displayTaskId = task.taskId;
+    const file = new File([blob], `${displayTaskId}.wav`, { type: "audio/wav" });
+    const performUpload = async () => {
+      await uploadAudio(currentTaskId, file);
+      await refreshProjectTasks(currentProjectId);
+    };
+
+    if (background) {
+      setAudioBlob(null);
+      audioRef.current?.pause();
+      setPlaying(false);
+      setCurrentTime(0);
+      setAudioUrl((prev) => {
+        if (prev?.startsWith("blob:")) {
+          URL.revokeObjectURL(prev);
+        }
+        return null;
+      });
+
+      performUpload()
+        .then(() => {
+          toast.success(`Audio submitted for ${displayTaskId}.`);
+        })
+        .catch((err) => {
+          toast.error(err.response?.data?.message || `Submission failed for ${displayTaskId}`);
+        });
+
+      return true;
+    }
+
     setSubmitting(true);
     try {
-      const file = new File([audioBlob], `${task.taskId}.wav`, { type: "audio/wav" });
-      await uploadAudio(id, file);
-
-      const latestTasks = await refreshProjectTasks(task.projectId);
-
-      const currentIndex = latestTasks.findIndex((t) => t._id === id);
-      const upcomingTask = currentIndex >= 0 ? latestTasks[currentIndex + 1] : null;
-
-      if (moveToNext && upcomingTask?._id) {
-        toast.success("Audio submitted! Moving to next task.");
-        navigate(`/user/tasks/${upcomingTask._id}`);
-        return true;
-      }
-
+      await performUpload();
       toast.success("Audio submitted successfully!");
-      await fetchTask(id);
+      await fetchTask(currentTaskId);
       return true;
     } catch (err) {
       toast.error(err.response?.data?.message || "Submission failed");
@@ -233,7 +253,11 @@ export default function TaskDetail() {
     }
 
     if (audioBlob) {
-      await submitAudioAndMaybeMove({ moveToNext: true });
+      const backgroundStarted = await uploadRecordedAudio({ background: true });
+      if (!backgroundStarted) return;
+
+      toast("Uploading audio in background. Moving to next task...");
+      navigate(`/user/tasks/${nextTask._id}`);
       return;
     }
 

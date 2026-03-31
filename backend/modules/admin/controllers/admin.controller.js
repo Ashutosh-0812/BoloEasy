@@ -241,6 +241,21 @@ const streamSubmissionAudio = async (req, res, next) => {
   }
 };
 
+const addAdminCommentToFlag = async (req, res, next) => {
+  try {
+    const adminComment = String(req.body?.adminComment || "").trim();
+    if (!adminComment) {
+      return errorResponse(res, "Admin comment is required.", 400);
+    }
+
+    const submission = await svc.addAdminCommentToFlag(req.params.id, adminComment, req.user.id);
+    return successResponse(res, "Admin comment added.", submission);
+  } catch (err) {
+    if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
+    next(err);
+  }
+};
+
 module.exports = {
   getDashboard,
   getAllUsers, getPendingUsers, verifyUser, updateUser,
@@ -252,4 +267,5 @@ module.exports = {
   streamTaskAudio,
   getTaskSubmissions,
   streamSubmissionAudio,
+  addAdminCommentToFlag,
 };
