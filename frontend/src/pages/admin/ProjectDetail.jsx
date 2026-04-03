@@ -282,25 +282,6 @@ export default function ProjectDetail() {
     }
   };
 
-  const loadSubmissionAudio = async (submissionId) => {
-    if (submissionAudioUrl) {
-      URL.revokeObjectURL(submissionAudioUrl);
-      setSubmissionAudioUrl(null);
-    }
-
-    if (!submissionId) return;
-    const selected = taskSubmissions.find((s) => s._id === submissionId);
-    if (!selected?.audio?.url && !selected?.audio?.publicId) return;
-
-    try {
-      const audioResponse = await streamSubmissionAudio(submissionId);
-      const audioBlobUrl = URL.createObjectURL(audioResponse.data);
-      setSubmissionAudioUrl(audioBlobUrl);
-    } catch {
-      toast.error("Submission loaded, but audio could not be played.");
-    }
-  };
-
   const openSubmission = async (taskId, { preferredSubmissionId, focusComment = false } = {}) => {
     setModal("submission");
     setSubmissionLoading(true);
@@ -1112,40 +1093,11 @@ export default function ProjectDetail() {
                       <p className="text-black/55 text-xs uppercase tracking-wide">Type</p>
                       <p className="text-black/80 mt-1">{selectedTask.type}</p>
                     </div>
-                    <div>
-                      <p className="text-black/55 text-xs uppercase tracking-wide">Submission User</p>
-                      <p className="text-black/80 mt-1">{selectedSubmission?.userId?.name || "No submission selected"}</p>
-                      {selectedSubmission?.userId?.email && <p className="text-black/55 text-xs mt-0.5">{selectedSubmission.userId.email}</p>}
-                    </div>
+                 
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-[#c7d1c3] bg-[#eef2ec] p-4">
-                <p className="label mb-2">Submissions</p>
-                {taskSubmissions.length ? (
-                  <select
-                    className="input"
-                    value={selectedSubmissionId}
-                    onChange={async (e) => {
-                      const nextId = e.target.value;
-                      setSelectedSubmissionId(nextId);
-                      const nextSubmission = taskSubmissions.find((submission) => submission._id === nextId);
-                      setAdminComment(nextSubmission?.reportedIssue?.adminComment || "");
-                      setIsEditingComment(!(nextSubmission?.reportedIssue?.adminComment));
-                      await loadSubmissionAudio(nextId);
-                    }}
-                  >
-                    {taskSubmissions.map((s) => (
-                      <option key={s._id} value={s._id}>
-                        {s.userId?.name || "Unknown user"} ({s.userId?.email || "no-email"})
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <p className="text-black/60 text-sm">No submissions yet for this task.</p>
-                )}
-              </div>
 
               {selectedSubmission?.reportedIssue?.flagged && (
                 <div className="rounded-2xl border border-[#d3b9b1] bg-[#f8efec] p-4">
