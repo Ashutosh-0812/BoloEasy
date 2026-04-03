@@ -137,6 +137,10 @@ const getTaskSubmissionById = async (submissionId) => {
   return TaskSubmission.findById(submissionId).populate("userId", "name email");
 };
 
+const deleteTaskSubmission = async (submissionId) => {
+  return TaskSubmission.findByIdAndDelete(submissionId).populate("userId", "name email");
+};
+
 const addAdminCommentToFlag = async (submissionId, comment, adminId) => {
   return TaskSubmission.findByIdAndUpdate(
     submissionId,
@@ -187,6 +191,7 @@ module.exports = {
   getAssignedProjectIdsByUser,
   getTaskSubmissions,
   getTaskSubmissionById,
+  deleteTaskSubmission,
   addAdminCommentToFlag,
   getDashboardStats,
 };

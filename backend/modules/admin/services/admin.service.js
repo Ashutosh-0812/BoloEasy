@@ -228,6 +228,28 @@ const getTaskSubmissionById = async (submissionId) => {
   return submission;
 };
 
+const deleteTaskSubmission = async (submissionId) => {
+  const submission = await dao.getTaskSubmissionById(submissionId);
+  if (!submission) {
+    const err = new Error("Submission not found.");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (submission.audio?.publicId) {
+    try {
+      const { deleteAudio } = require("../../../services/cloudinary.service");
+      await deleteAudio(submission.audio.publicId);
+    } catch (audioErr) {
+      logger.warn(`Could not delete Cloudinary audio for submission ${submissionId}: ${audioErr.message}`);
+    }
+  }
+
+  const deleted = await dao.deleteTaskSubmission(submissionId);
+  logger.info(`Submission deleted: ${submissionId}`);
+  return deleted;
+};
+
 const addAdminCommentToFlag = async (submissionId, adminComment, adminId) => {
   const submission = await dao.getTaskSubmissionById(submissionId);
   if (!submission) {
@@ -487,6 +509,7 @@ module.exports = {
   getAssignedProjectIdsByUser,
   getTaskSubmissions,
   getTaskSubmissionById,
+  deleteTaskSubmission,
   addAdminCommentToFlag,
   createProject, getAllProjects, getProjectById, updateProject, deleteProject,
   createTask, createTasksFromExcel, getTasksByProject, getTaskById, updateTask, deleteTask,

@@ -241,6 +241,16 @@ const streamSubmissionAudio = async (req, res, next) => {
   }
 };
 
+const deleteSubmission = async (req, res, next) => {
+  try {
+    await svc.deleteTaskSubmission(req.params.id);
+    return successResponse(res, "Submission deleted successfully.", null);
+  } catch (err) {
+    if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
+    next(err);
+  }
+};
+
 const addAdminCommentToFlag = async (req, res, next) => {
   try {
     const adminComment = String(req.body?.adminComment || "").trim();
@@ -267,5 +277,6 @@ module.exports = {
   streamTaskAudio,
   getTaskSubmissions,
   streamSubmissionAudio,
+  deleteSubmission,
   addAdminCommentToFlag,
 };

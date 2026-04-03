@@ -12,6 +12,7 @@ import {
   getTaskById,
   getTaskSubmissions,
   streamSubmissionAudio,
+  deleteSubmission,
   uploadTasksExcel,
   addAdminCommentToFlag,
 } from "../../api/admin.api";
@@ -440,6 +441,31 @@ export default function ProjectDetail() {
     catch { toast.error("Delete failed"); }
   };
 
+  const handleDeleteSubmission = async (taskId, submission) => {
+    if (!submission?._id) return;
+    if (!confirm("Delete this submission?")) return;
+
+    try {
+      await deleteSubmission(submission._id);
+
+      setSubmissionsByTaskId((prev) => {
+        const next = { ...prev };
+        next[taskId] = (next[taskId] || []).filter((item) => item._id !== submission._id);
+        return next;
+      });
+
+      setTaskSubmissions((prev) => prev.filter((item) => item._id !== submission._id));
+
+      if (selectedSubmissionId === submission._id) {
+        closeSubmissionModal();
+      }
+
+      toast.success("Submission deleted");
+    } catch {
+      toast.error("Delete failed");
+    }
+  };
+
   const handleAdminCommentSubmit = async () => {
     if (!selectedSubmission?._id) {
       toast.error("Select a submission to comment on.");
@@ -701,6 +727,13 @@ export default function ProjectDetail() {
                           >
                             Details
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSubmission(rowTask._id, submission)}
+                            className="px-2 py-1 rounded border border-transparent hover:bg-red-100 text-black/70 hover:text-red-700 transition text-[11px] font-semibold inline-flex items-center gap-1 "
+                          >
+                            <Trash2 size={13} /> Delete
+                          </button>
                         </div>
                       </div>
                     ))
@@ -872,7 +905,6 @@ export default function ProjectDetail() {
                           key={submission._id}
                           className="border-b border-[#d8e0d5] hover:bg-primary-50/60 transition cursor-pointer"
                           onClick={() => openSubmission(rowTask._id, { preferredSubmissionId: submission._id })}
-                          title="View submission details"
                         >
                           <td className="px-2 py-3.5 w-[12%]">
                             <span className="font-mono text-xs text-primary-700 bg-primary-100 px-1.5 py-0.5 rounded block truncate">{rowTask.taskId}</span>
@@ -898,8 +930,19 @@ export default function ProjectDetail() {
                                   openSubmission(rowTask._id, { preferredSubmissionId: submission._id });
                                 }}
                                 className="text-[11px] font-semibold text-primary-800 hover:text-primary-900"
+                                title="View submission details"
                               >
                                 Details
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteSubmission(rowTask._id, submission);
+                                }}
+                                className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold text-[#8d3d2e] hover:bg-red-100 hover:text-[#62291f] transition"
+                              >
+                                <Trash2 size={13} /> Delete
                               </button>
                             </div>
                           </td>
