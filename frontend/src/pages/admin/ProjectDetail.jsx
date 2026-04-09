@@ -14,9 +14,10 @@ import {
   streamSubmissionAudio,
   deleteSubmission,
   uploadTasksExcel,
+  downloadTaskTemplate,
   addAdminCommentToFlag,
 } from "../../api/admin.api";
-import { Plus, Trash2, Pencil, ChevronLeft, Mic2, FileAudio, FileText, User2, CalendarClock, Upload, MessageSquare } from "lucide-react";
+import { Plus, Trash2, Pencil, ChevronLeft, Mic2, FileAudio, FileText, User2, CalendarClock, Upload, Download, MessageSquare } from "lucide-react";
 import { PageSpinner, Spinner } from "../../components/ui/Spinner";
 import toast from "react-hot-toast";
 
@@ -102,6 +103,7 @@ export default function ProjectDetail() {
   const [shouldFocusComment, setShouldFocusComment] = useState(false);
   const [isEditingComment, setIsEditingComment] = useState(false);
   const [bulkUploading, setBulkUploading] = useState(false);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [submissionSearch, setSubmissionSearch] = useState("");
   const [submissionPage, setSubmissionPage] = useState(1);
   const [flagPage, setFlagPage] = useState(1);
@@ -560,6 +562,26 @@ export default function ProjectDetail() {
     }
   };
 
+  const handleDownloadTemplate = async () => {
+    setDownloadingTemplate(true);
+    try {
+      const response = await downloadTaskTemplate();
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "Named_Entities_Tasks.xlsx");
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("Template downloaded successfully");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to download template");
+    } finally {
+      setDownloadingTemplate(false);
+    }
+  };
+
   const handleViewChange = (nextView) => {
     if (dataTableInstanceRef.current) {
       dataTableInstanceRef.current.destroy();
@@ -637,6 +659,14 @@ export default function ProjectDetail() {
                 title="Upload Excel with Task Name, Text, language columns (English/Telugu/Hindi...), prompt optional"
               >
                 <Upload size={16} /> {bulkUploading ? "Uploading..." : "Upload Excel"}
+              </button>
+              <button
+                onClick={handleDownloadTemplate}
+                className="btn-secondary flex items-center justify-center gap-2 w-full sm:w-auto"
+                disabled={downloadingTemplate}
+                title="Download template file for bulk task upload"
+              >
+                <Download size={16} /> {downloadingTemplate ? "Downloading..." : "Download Template"}
               </button>
               <button onClick={openCreate} className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto">
                 <Plus size={16} /> Add Task

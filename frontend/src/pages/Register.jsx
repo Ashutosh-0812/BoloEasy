@@ -47,12 +47,12 @@ export default function Register() {
             <div>
               <label className="label">Full Name</label>
               <input name="name" value={form.name} onChange={handleChange}
-                className="input" placeholder="Ashutosh Singh" required />
+                className="input" placeholder="" required />
             </div>
             <div>
               <label className="label">Email</label>
               <input name="email" type="email" value={form.email} onChange={handleChange}
-                className="input" placeholder="you@example.com" required />
+                className="input" placeholder="" required />
             </div>
             <div>
               <label className="label">Role</label>
@@ -64,7 +64,7 @@ export default function Register() {
             <div>
               <label className="label">Password</label>
               <input name="password" type="password" value={form.password} onChange={handleChange}
-                className="input" placeholder="Min 6 chars, 1 uppercase, 1 number" required />
+                className="input" placeholder="" required />
               <p className="text-xs text-slate-500 mt-1">Min 6 characters, 1 uppercase, 1 number</p>
             </div>
             <button type="submit" disabled={loading}

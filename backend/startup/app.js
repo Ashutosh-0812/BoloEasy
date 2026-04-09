@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
+const path = require("path");
 const logger = require("../logging/logger");
 const modulesRouter = require("../modules/index");
 const errorHandler = require("../middlewares/errorHandler");
@@ -26,6 +27,11 @@ const createApp = () => {
       stream: morganStream,
     })
   );
+
+  // Serve static files (templates, etc.)
+  const publicDir = path.join(__dirname, "..", "public");
+  app.use("/api/public", express.static(publicDir));
+  app.use("/public", express.static(publicDir));
 
   // Health check
   app.get("/health", (req, res) => {

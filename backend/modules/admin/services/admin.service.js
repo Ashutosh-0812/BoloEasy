@@ -423,7 +423,7 @@ const createTasksFromExcel = async (projectId, fileBuffer) => {
     const row = rows[index];
     const excelRowNumber = index + 2;
 
-    const type = toText(getCellValue(row, ["taskname"]));
+    const type = toText(getCellValue(row, ["taskname","type"]));
     const text = toText(getCellValue(row, ["text", "tasktext", "content", "english"]));
     const prompt = toText(getCellValue(row, ["prompt", "instruction", "instructions"])) || DEFAULT_PROMPT;
     const assignedToRaw = toText(getCellValue(row, ["assignedto", "assignedtoid", "assignedtoemail", "assignee", "assigneeemail"]));

@@ -47,14 +47,14 @@ export default function Login() {
             <div>
               <label className="label">Email</label>
               <input name="email" type="email" value={form.email} onChange={handleChange}
-                className="input" placeholder="admin@bolo.com" required />
+                className="input" placeholder="" required />
             </div>
             <div>
               <label className="label">Password</label>
               <div className="relative">
                 <input name="password" type={showPass ? "text" : "password"}
                   value={form.password} onChange={handleChange}
-                  className="input pr-10" placeholder="••••••••" required />
+                  className="input pr-10" placeholder="" required />
                 <button type="button" onClick={() => setShowPass((v) => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
                   {showPass ? <EyeOff size={16} /> : <Eye size={16} />}

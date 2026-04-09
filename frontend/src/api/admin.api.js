@@ -30,6 +30,9 @@ export const uploadTasksExcel = (projectId, file) => {
 		headers: { "Content-Type": "multipart/form-data" },
 	});
 };
+export const downloadTaskTemplate = () => {
+	return api.get("/public/Named_Entities_Tasks.xlsx", { responseType: "blob" });
+};
 export const getTasksByProject = (projectId) => api.get(`/admin/projects/${projectId}/tasks`);
 export const getTaskById = (id) => api.get(`/admin/tasks/${id}`);
 export const updateTask = (id, data) => api.patch(`/admin/tasks/${id}`, data);
