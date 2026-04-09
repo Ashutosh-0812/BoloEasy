@@ -31,7 +31,7 @@ export const uploadTasksExcel = (projectId, file) => {
 	});
 };
 export const downloadTaskTemplate = () => {
-	return api.get("/public/Named_Entities_Tasks.xlsx", { responseType: "blob" });
+	return api.get("/public/Template.xlsx", { responseType: "blob" });
 };
 export const getTasksByProject = (projectId) => api.get(`/admin/projects/${projectId}/tasks`);
 export const getTaskById = (id) => api.get(`/admin/tasks/${id}`);

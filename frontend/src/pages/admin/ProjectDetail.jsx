@@ -569,7 +569,7 @@ export default function ProjectDetail() {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", "Named_Entities_Tasks.xlsx");
+      link.setAttribute("download", "Template.xlsx");
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
