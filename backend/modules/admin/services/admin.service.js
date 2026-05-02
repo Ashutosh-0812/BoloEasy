@@ -2,7 +2,7 @@ const dao = require("../dao/admin.dao");
 const logger = require("../../../logging/logger");
 const xlsx = require("xlsx");
 
-const normalizeHeader = (value = "") => String(value).trim().toLowerCase().replace(/[_\s-]+/g, "");
+const normalizeHeader = (value = "") => String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
 
 const getCellValue = (row, aliases) => {
   const rowKeys = Object.keys(row || {});
@@ -17,6 +17,11 @@ const NON_LANGUAGE_HEADERS = new Set([
   "s.no",
   "serialno",
   "serialnumber",
+  "typeno",
+  "typenumber",
+  "taskno",
+  "tasknumber",
+  "taskid",
   "type",
   "tasktype",
   "taskname",
@@ -423,7 +428,7 @@ const createTasksFromExcel = async (projectId, fileBuffer) => {
     const row = rows[index];
     const excelRowNumber = index + 2;
 
-    const type = toText(getCellValue(row, ["taskname","type"]));
+    const type = toText(getCellValue(row, ["taskname", "tasktype", "type", "task"]));
     const text = toText(getCellValue(row, ["text", "tasktext", "content", "english"]));
     const prompt = toText(getCellValue(row, ["prompt", "instruction", "instructions"])) || DEFAULT_PROMPT;
     const assignedToRaw = toText(getCellValue(row, ["assignedto", "assignedtoid", "assignedtoemail", "assignee", "assigneeemail"]));
