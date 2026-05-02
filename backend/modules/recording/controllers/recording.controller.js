@@ -6,19 +6,25 @@ const shapeRecording = (rec) => {
   const audio = rec?.audio
     ? { url: rec.audio.url || null, uploadedAt: rec.audio.uploadedAt || null }
     : null;
-  const user = rec?.userId
-    ? { _id: rec.userId._id, name: rec.userId.name, email: rec.userId.email, role: rec.userId.role }
-    : null;
+  const user = rec?.userId ? { name: rec.userId.name, email: rec.userId.email } : null;
 
   const task = rec?.taskId || null;
   const text = task?.text || null;
 
-  // languageVariants may be a Map or an object; collect its keys as tags
-  let tag = [];
+  // languageVariants may be a Map or an object; build tag object mapping language->text
+  let tag = {};
   const lv = task?.languageVariants;
   if (lv) {
-    if (Array.isArray(lv)) tag = lv;
-    else if (typeof lv === "object") tag = Object.keys(lv);
+    if (lv instanceof Map) {
+      for (const [k, v] of lv) {
+        if (v !== undefined && v !== null && String(v).trim() !== "") tag[k] = v;
+      }
+    } else if (typeof lv === "object") {
+      Object.keys(lv).forEach((k) => {
+        const v = lv[k];
+        if (v !== undefined && v !== null && String(v).trim() !== "") tag[k] = v;
+      });
+    }
   }
 
   const project = rec?.projectId ? { _id: rec.projectId._id, name: rec.projectId.name } : null;
