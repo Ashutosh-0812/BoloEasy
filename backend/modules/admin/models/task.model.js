@@ -81,6 +81,12 @@ const taskSchema = new mongoose.Schema(
       of: String,
       default: {},
     },
+    pinyinScript: {
+      type: String,
+      trim: true,
+      maxlength: [5000, "Pinyin script must be at most 5000 characters"],
+      default: "",
+    },
     audio: {
       provider: { type: String, default: null },
       publicId: { type: String, default: null },

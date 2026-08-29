@@ -318,7 +318,7 @@ const deleteProject = async (id) => {
 };
 
 // ─── Tasks ────────────────────────────────────────────────────────────────────
-const createTask = async ({ projectId, type, text, prompt, languageVariants, assignedTo }) => {
+const createTask = async ({ projectId, type, text, prompt, languageVariants, pinyinScript, assignedTo }) => {
   // Ensure project exists
   const project = await dao.getProjectById(projectId);
   if (!project) {
@@ -331,6 +331,9 @@ const createTask = async ({ projectId, type, text, prompt, languageVariants, ass
   const taskData = { projectId, type, text, prompt };
   if (languageVariants && Object.keys(languageVariants).length) {
     taskData.languageVariants = languageVariants;
+  }
+  if (pinyinScript) {
+    taskData.pinyinScript = pinyinScript;
   }
   if (assignedTo) {
     taskData.assignedTo = assignedTo;

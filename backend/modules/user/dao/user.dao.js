@@ -124,6 +124,10 @@ const getTaskByIdForUser = async (taskId) => {
   return Task.findById(taskId).lean();
 };
 
+const updateTaskPinyinScript = async (taskId, pinyinScript) => {
+  return Task.findByIdAndUpdate(taskId, { pinyinScript }, { new: true, runValidators: true });
+};
+
 const getTaskSubmissionForUser = async (taskId, userId) => {
   return TaskSubmission.findOne({ taskId, userId });
 };
@@ -198,4 +202,5 @@ module.exports = {
   saveAudio,
   markTaskSkipped,
   reportTaskIssue,
+  updateTaskPinyinScript,
 };

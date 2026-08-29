@@ -19,3 +19,5 @@ export const streamAudio = (id) => api.get(`/user/tasks/${id}/audio`, {
 
 export const skipTask = (id) => api.post(`/user/tasks/${id}/skip`);
 export const flagTaskIssue = (id, payload = {}) => api.post(`/user/tasks/${id}/flag`, payload);
+export const updatePinyinScript = (id, pinyinScript) =>
+  api.patch(`/user/tasks/${id}/pinyin-script`, { pinyinScript });

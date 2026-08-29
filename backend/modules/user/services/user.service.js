@@ -83,6 +83,13 @@ const flagTaskIssue = async (taskId, userId, note = "") => {
   return getTaskDetail(taskId, userId);
 };
 
+const updatePinyinScript = async (taskId, userId, pinyinScript = "") => {
+  // Validates task existence + project assignment, same as every other user-facing task mutation.
+  await getTaskDetail(taskId, userId);
+  await dao.updateTaskPinyinScript(taskId, pinyinScript);
+  return getTaskDetail(taskId, userId);
+};
+
 module.exports = {
   getMyTasks,
   getMyProjects,
@@ -91,4 +98,5 @@ module.exports = {
   uploadAudio: uploadTaskAudio,
   skipTask,
   flagTaskIssue,
+  updatePinyinScript,
 };

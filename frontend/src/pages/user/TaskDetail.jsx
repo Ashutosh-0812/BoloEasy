@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import UserLayout from "../../components/layout/UserLayout";
-import { getTaskDetail, getProjectTasks, streamAudio, uploadAudio, flagTaskIssue } from "../../api/user.api";
+import { getTaskDetail, getProjectTasks, flagTaskIssue } from "../../api/user.api";
 import Modal from "../../components/ui/Modal";
-import {
-  ChevronLeft, Mic, CheckCircle2, Languages, Play, Pause, SkipBack, SkipForward, Flag,
-} from "lucide-react";
-import { PageSpinner, Spinner } from "../../components/ui/Spinner";
+import AudioRecorder from "../../components/task/AudioRecorder";
+import TextToReadCard from "../../components/task/TextToReadCard";
+import ChineseReadCard from "../../components/task/ChineseReadCard";
+import { ChevronLeft, CheckCircle2, Flag } from "lucide-react";
+import { PageSpinner } from "../../components/ui/Spinner";
 import toast from "react-hot-toast";
 
 const statusBadge = (s) => {
@@ -23,49 +24,16 @@ export default function TaskDetail() {
   const [loading, setLoading] = useState(true);
   const [switchingTask, setSwitchingTask] = useState(false);
   const [activeProjectId, setActiveProjectId] = useState(null);
-  const [selectedLanguage, setSelectedLanguage] = useState("default");
   const [projectTasks, setProjectTasks] = useState([]);
+  const [recorderSubmitting, setRecorderSubmitting] = useState(false);
 
-  // Audio recording
-  const [recording, setRecording] = useState(false);
-  const [audioBlob, setAudioBlob] = useState(null);
-  const [audioUrl, setAudioUrl] = useState(null);
-  const [playing, setPlaying] = useState(false);
-  const [duration, setDuration] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [recordingElapsed, setRecordingElapsed] = useState(0);
-  const mediaRef = useRef(null);
-  const chunksRef = useRef([]);
-  const audioRef = useRef(null);
-  const recordingStartedAtRef = useRef(null);
-  const recordingTickerRef = useRef(null);
-
-  const [submitting, setSubmitting] = useState(false);
   const [isFlagModalOpen, setIsFlagModalOpen] = useState(false);
   const [flagComment, setFlagComment] = useState("");
   const [flagSubmitting, setFlagSubmitting] = useState(false);
 
   const refreshProjectTasks = async (projectId) => {
     const tasksRes = await getProjectTasks(projectId);
-    const latestTasks = tasksRes.data.data.tasks || [];
-    setProjectTasks(latestTasks);
-    return latestTasks;
-  };
-
-  const loadRecordedAudio = async (taskId) => {
-    try {
-      const response = await streamAudio(taskId);
-      const url = URL.createObjectURL(response.data);
-      setAudioUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return url;
-      });
-    } catch {
-      setAudioUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return null;
-      });
-    }
+    setProjectTasks(tasksRes.data.data.tasks || []);
   };
 
   const fetchTask = async (taskId, { smooth = false } = {}) => {
@@ -78,25 +46,12 @@ export default function TaskDetail() {
       const taskRes = await getTaskDetail(taskId);
       const taskData = taskRes.data.data;
       setTask(taskData);
-      setSelectedLanguage("default");
 
       if (!activeProjectId || activeProjectId !== String(taskData.projectId) || projectTasks.length === 0) {
         const tasksRes = await getProjectTasks(taskData.projectId);
         setProjectTasks(tasksRes.data.data.tasks || []);
         setActiveProjectId(String(taskData.projectId));
       }
-
-      if (taskData.audio?.publicId || taskData.audio?.url) {
-        await loadRecordedAudio(taskId);
-      } else {
-        setAudioUrl((prev) => {
-          if (prev) URL.revokeObjectURL(prev);
-          return null;
-        });
-      }
-      setAudioBlob(null);
-      setPlaying(false);
-      setCurrentTime(0);
     } catch {
       toast.error("Failed to load task");
     } finally {
@@ -108,173 +63,14 @@ export default function TaskDetail() {
   useEffect(() => {
     const isInitialLoad = !task;
     fetchTask(id, { smooth: !isInitialLoad });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
-
-  useEffect(() => {
-    return () => {
-      if (audioUrl) URL.revokeObjectURL(audioUrl);
-    };
-  }, [audioUrl]);
-
-  useEffect(() => {
-    if (recording) {
-      if (!recordingStartedAtRef.current) {
-        recordingStartedAtRef.current = Date.now();
-      }
-
-      recordingTickerRef.current = window.setInterval(() => {
-        const elapsedSeconds = Math.floor((Date.now() - recordingStartedAtRef.current) / 1000);
-        setRecordingElapsed(elapsedSeconds);
-      }, 250);
-    } else if (recordingTickerRef.current) {
-      window.clearInterval(recordingTickerRef.current);
-      recordingTickerRef.current = null;
-    }
-
-    return () => {
-      if (recordingTickerRef.current) {
-        window.clearInterval(recordingTickerRef.current);
-        recordingTickerRef.current = null;
-      }
-    };
-  }, [recording]);
-
-  // ─── Recording ───────────────────────────────────────────────────────────────
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      setRecordingElapsed(0);
-      recordingStartedAtRef.current = Date.now();
-      chunksRef.current = [];
-      const mr = new MediaRecorder(stream, { mimeType: "audio/webm" });
-      mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      mr.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/wav" });
-        setAudioBlob(blob);
-        const url = URL.createObjectURL(blob);
-        setAudioUrl((prev) => {
-          if (prev) URL.revokeObjectURL(prev);
-          return url;
-        });
-        setPlaying(false);
-        setCurrentTime(0);
-        stream.getTracks().forEach((t) => t.stop());
-      };
-      mr.start();
-      mediaRef.current = mr;
-      setRecording(true);
-    } catch {
-      toast.error("Microphone access denied. Please allow mic access.");
-    }
-  };
-
-  const stopRecording = () => {
-    mediaRef.current?.stop();
-    setRecording(false);
-  };
-
-  const renderRecordingWave = () => (
-    <div className="recording-wave" aria-hidden="true">
-      <span className="recording-wave__bar" />
-      <span className="recording-wave__bar" />
-      <span className="recording-wave__bar" />
-      <span className="recording-wave__bar" />
-      <span className="recording-wave__bar" />
-    </div>
-  );
-
-  const uploadRecordedAudio = async ({ background = false } = {}) => {
-    if (recording) {
-      toast.error("Stop recording before submitting.");
-      return false;
-    }
-
-    if (!audioBlob) {
-      toast.error("Please record audio first.");
-      return false;
-    }
-
-    const blob = audioBlob;
-    const currentTaskId = id;
-    const currentProjectId = task.projectId;
-    const displayTaskId = task.taskId;
-    const file = new File([blob], `${displayTaskId}.wav`, { type: "audio/wav" });
-    const performUpload = async () => {
-      await uploadAudio(currentTaskId, file);
-      await refreshProjectTasks(currentProjectId);
-    };
-
-    if (background) {
-      setAudioBlob(null);
-      audioRef.current?.pause();
-      setPlaying(false);
-      setCurrentTime(0);
-      setAudioUrl((prev) => {
-        if (prev?.startsWith("blob:")) {
-          URL.revokeObjectURL(prev);
-        }
-        return null;
-      });
-
-      performUpload()
-        .then(() => {
-          toast.success(`Audio submitted for ${displayTaskId}.`);
-        })
-        .catch((err) => {
-          toast.error(err.response?.data?.message || `Submission failed for ${displayTaskId}`);
-        });
-
-      return true;
-    }
-
-    setSubmitting(true);
-    try {
-      await performUpload();
-      toast.success("Audio submitted successfully!");
-      await fetchTask(currentTaskId);
-      return true;
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Submission failed");
-      return false;
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleRecorderNext = async () => {
-    if (!nextTask) {
-      toast("You are on the last task");
-      return;
-    }
-
-    if (recording) {
-      toast.error("Stop recording before moving to next task.");
-      return;
-    }
-
-    if (audioBlob) {
-      const backgroundStarted = await uploadRecordedAudio({ background: true });
-      if (!backgroundStarted) return;
-
-      toast("Uploading audio in background. Moving to next task...");
-      navigate(`/user/tasks/${nextTask._id}`);
-      return;
-    }
-
-    if (task.audio?.publicId || task.audio?.url) {
-      navigate(`/user/tasks/${nextTask._id}`);
-      return;
-    }
-
-    toast.error("Please record audio first. Use Skip if you want to continue without submitting.");
-  };
 
   const handleSkipTask = async () => {
     if (!nextTask) {
       toast("You are on the last task");
       return;
     }
-
     navigate(`/user/tasks/${nextTask._id}`);
   };
 
@@ -306,31 +102,6 @@ export default function TaskDetail() {
     }
   };
 
-  const togglePlayback = async () => {
-    if (!audioRef.current || !audioUrl) {
-      toast.error("No recorded audio available.");
-      return;
-    }
-
-    try {
-      if (playing) {
-        audioRef.current.pause();
-      } else {
-        await audioRef.current.play();
-      }
-      setPlaying((prev) => !prev);
-    } catch {
-      toast.error("Unable to play audio.");
-    }
-  };
-
-  const formatTime = (seconds) => {
-    if (!Number.isFinite(seconds)) return "0:00";
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${String(secs).padStart(2, "0")}`;
-  };
-
   const currentTaskIndex = useMemo(
     () => projectTasks.findIndex((t) => t._id === id),
     [projectTasks, id]
@@ -343,16 +114,7 @@ export default function TaskDetail() {
   if (loading) return <UserLayout><PageSpinner /></UserLayout>;
   if (!task) return <UserLayout><p className="text-slate-400">Task not found.</p></UserLayout>;
 
-  const languageOptions = [
-    { label: "Default", value: "default" },
-    ...Object.entries(task.languageVariants || {})
-      .filter(([, value]) => Boolean(String(value || "").trim()))
-      .map(([label]) => ({ label, value: label })),
-  ];
-
-  const textToRead = selectedLanguage === "default"
-    ? task.text
-    : task.languageVariants?.[selectedLanguage] || task.text;
+  const isChineseRead = task.type === "Chinese Read";
 
   return (
     <UserLayout>
@@ -392,7 +154,7 @@ export default function TaskDetail() {
             <button
               type="button"
               onClick={handleSkipTask}
-              disabled={submitting || !nextTask}
+              disabled={recorderSubmitting || !nextTask}
               className="btn-secondary text-sm px-4 py-1.5 disabled:opacity-50"
             >
               Skip
@@ -400,7 +162,7 @@ export default function TaskDetail() {
             <button
               type="button"
               onClick={handleFlagTask}
-              disabled={submitting || flagSubmitting}
+              disabled={recorderSubmitting || flagSubmitting}
               className="btn-secondary text-sm px-4 py-1.5 inline-flex items-center gap-1.5"
             >
               <Flag size={14} /> Flag
@@ -413,29 +175,15 @@ export default function TaskDetail() {
             <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap break-all">{task.prompt}</p>
           </div>
 
-          {/* Text to read */}
-          <div className="card bg-slate-50 border border-slate-200">
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <p className="label text-primary-400">Text to Read</p>
-              {languageOptions.length > 1 && (
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="inline-flex items-center gap-1.5 text-xs text-primary-500">
-                    <Languages size={14} /> 
-                  </span>
-                  <select
-                    className="input !h-9 !py-1.5 !px-2.5 !text-sm min-w-[140px] max-w-[180px]"
-                    value={selectedLanguage}
-                    onChange={(e) => setSelectedLanguage(e.target.value)}
-                  >
-                    {languageOptions.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-            <p className="text-primary-900 text-lg font-medium leading-relaxed whitespace-pre-wrap break-all">{textToRead}</p>
-          </div>
+          {isChineseRead ? (
+            <ChineseReadCard
+              key={task._id}
+              task={task}
+              onTaskUpdate={(patch) => setTask((t) => ({ ...t, ...patch }))}
+            />
+          ) : (
+            <TextToReadCard key={task._id} task={task} />
+          )}
 
           {/* Audio status */}
           {(task.audio?.publicId || task.audio?.url) && (
@@ -455,124 +203,20 @@ export default function TaskDetail() {
 
         {/* Right: Record status */}
         <div className="space-y-4 min-w-0">
-          <div className="card">
-            <p className="label mb-3">Recording Status</p>
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <p className="text-sm text-slate-400">
-                {recording ? "Recording in progress..." : audioBlob ? "New recording ready to upload." : "Use recorder controls below."}
-              </p>
-              {recording && (
-                <span className="shrink-0 rounded-md bg-red-100 text-red-700 text-xs font-semibold px-2.5 py-1">
-                  {formatTime(recordingElapsed)}
-                </span>
-              )}
-            </div>
-
-            <div className="hidden md:flex items-center justify-between rounded-2xl bg-primary-700 px-5 py-4 mb-4">
-              <button
-                type="button"
-                onClick={() => prevTask ? navigate(`/user/tasks/${prevTask._id}`) : toast("This is the first task")}
-                className="w-12 h-12 rounded-full bg-white text-primary-700 flex items-center justify-center disabled:opacity-40"
-                disabled={!prevTask}
-                aria-label="Previous task"
-              >
-                <SkipBack size={26} />
-              </button>
-
-              <button
-                type="button"
-                onClick={recording ? stopRecording : startRecording}
-                className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition ${recording ? "bg-red-500 animate-pulse" : "bg-white"}`}
-                aria-label={recording ? "Stop recording" : "Start recording"}
-              >
-                {recording ? renderRecordingWave() : <Mic size={24} className="text-primary-700" />}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleRecorderNext}
-                className="w-12 h-12 rounded-full bg-white text-primary-700 flex items-center justify-center disabled:opacity-40"
-                disabled={!nextTask || submitting}
-                aria-label="Next task"
-              >
-                <SkipForward size={26} />
-              </button>
-            </div>
-
-
-              <audio
-                ref={audioRef}
-                src={audioUrl || undefined}
-                onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
-                onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
-                onEnded={() => setPlaying(false)}
-                className="hidden"
-              />
-              <div className="flex items-center gap-3 mb-4">
-                <button
-                  type="button"
-                  onClick={togglePlayback}
-                  className="text-primary-900"
-                  aria-label={playing ? "Pause audio" : "Play audio"}
-                >
-                  {playing ? <Pause size={22} /> : <Play size={22} />}
-                </button>
-                <input
-                  type="range"
-                  min="0"
-                  max={duration || 0}
-                  step="0.01"
-                  value={currentTime}
-                  onChange={(e) => {
-                    const value = Number(e.target.value);
-                    if (!audioRef.current) return;
-                    audioRef.current.currentTime = value;
-                    setCurrentTime(value);
-                  }}
-                  className="w-full accent-primary-700"
-                />
-                <span className="text-xs text-primary-500 min-w-[76px] text-right">
-                  {formatTime(currentTime)} / {formatTime(duration)}
-                </span>
-              </div>
-
-            <div className="text-xs text-black/70">
-              Use Next in the recorder controls to auto-submit your recording and move to the next task.
-            </div>
-          </div>
-        </div>
-      </div>
-
-        <div className="fixed bottom-0 left-0 right-0 bg-primary-700 border-t border-primary-800 z-30 md:hidden">
-          <div className="max-w-5xl mx-auto h-20 px-4 flex items-center justify-center gap-10 md:gap-14">
-          <button
-            type="button"
-            onClick={() => prevTask ? navigate(`/user/tasks/${prevTask._id}`) : toast("This is the first task")}
-              className="w-12 h-12 rounded-full bg-white text-primary-700 flex items-center justify-center disabled:opacity-40"
-            disabled={!prevTask}
-            aria-label="Previous task"
-          >
-            <SkipBack size={28} />
-          </button>
-
-          <button
-            type="button"
-            onClick={recording ? stopRecording : startRecording}
-            className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition ${recording ? "bg-red-500 animate-pulse" : "bg-white"}`}
-            aria-label={recording ? "Stop recording" : "Start recording"}
-          >
-            {recording ? renderRecordingWave() : <Mic size={24} className="text-primary-700" />}
-          </button>  
-
-          <button
-            type="button"
-            onClick={handleRecorderNext}
-            className="w-12 h-12 rounded-full bg-white text-primary-700 flex items-center justify-center disabled:opacity-40"
-            disabled={!nextTask || submitting}
-            aria-label="Next task"
-          >
-            <SkipForward size={28} />
-          </button>
+          <AudioRecorder
+            task={task}
+            taskId={id}
+            prevTask={prevTask}
+            nextTask={nextTask}
+            onNavigate={(taskId) => navigate(`/user/tasks/${taskId}`)}
+            onSubmittingChange={setRecorderSubmitting}
+            onAfterUpload={async ({ background } = {}) => {
+              await refreshProjectTasks(task.projectId);
+              // A background upload means the user has already navigated to the next
+              // task by the time this resolves — refetching here would clobber it.
+              if (!background) await fetchTask(id);
+            }}
+          />
         </div>
       </div>
       </div>

@@ -120,6 +120,19 @@ const flagTaskIssue = async (req, res, next) => {
   }
 };
 
+const updatePinyinScript = async (req, res, next) => {
+  try {
+    const task = await userSvc.updatePinyinScript(req.params.id, req.user.id, req.body.pinyinScript);
+    return successResponse(res, "Pinyin script updated.", {
+      taskId: task.taskId,
+      pinyinScript: task.pinyinScript,
+    });
+  } catch (err) {
+    if (err.statusCode) return errorResponse(res, err.message, err.statusCode);
+    next(err);
+  }
+};
+
 module.exports = {
   getMyTasks,
   getMyProjects,
@@ -129,4 +142,5 @@ module.exports = {
   streamAudio,
   skipTask,
   flagTaskIssue,
+  updatePinyinScript,
 };

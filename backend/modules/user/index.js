@@ -4,6 +4,7 @@ const ctrl = require("./controllers/user.controller");
 const { authenticate, requireRole } = require("../../middlewares/auth");
 const validate = require("../../middlewares/validate");
 const { validateObjectId } = require("../../validators/common.validator");
+const { updatePinyinScriptValidator } = require("./validators/user.validator");
 const audioUpload = require("./services/audioUpload.service");
 
 // All user routes require authentication + user role
@@ -37,5 +38,12 @@ router.post("/tasks/:id/skip", [validateObjectId("id"), validate], ctrl.skipTask
 
 // POST /api/user/tasks/:id/flag
 router.post("/tasks/:id/flag", [validateObjectId("id"), validate], ctrl.flagTaskIssue);
+
+// PATCH /api/user/tasks/:id/pinyin-script
+router.patch(
+  "/tasks/:id/pinyin-script",
+  [validateObjectId("id"), ...updatePinyinScriptValidator, validate],
+  ctrl.updatePinyinScript
+);
 
 module.exports = router;

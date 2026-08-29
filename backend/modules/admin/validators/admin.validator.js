@@ -67,6 +67,11 @@ const createTaskValidator = [
     .notEmpty().withMessage("Prompt is required")
     .isLength({ max: 1000 }).withMessage("Prompt must be at most 1000 characters"),
 
+  body("pinyinScript")
+    .optional({ checkFalsy: true })
+    .trim()
+    .isLength({ max: 5000 }).withMessage("Pinyin script must be at most 5000 characters"),
+
   body("assignedTo")
     .optional({ checkFalsy: true })
     .isMongoId().withMessage("assignedTo must be a valid user ID"),
@@ -87,6 +92,11 @@ const updateTaskValidator = [
     .optional()
     .trim()
     .isLength({ max: 1000 }).withMessage("Prompt must be at most 1000 characters"),
+
+  body("pinyinScript")
+    .optional({ checkFalsy: true })
+    .trim()
+    .isLength({ max: 5000 }).withMessage("Pinyin script must be at most 5000 characters"),
 
   body("assignedTo")
     .optional({ checkFalsy: true })

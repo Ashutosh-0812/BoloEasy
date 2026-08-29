@@ -21,8 +21,8 @@ import { Plus, Trash2, Pencil, ChevronLeft, Mic2, FileAudio, FileText, User2, Ca
 import { PageSpinner, Spinner } from "../../components/ui/Spinner";
 import toast from "react-hot-toast";
 
-const TASK_TYPES = ["NE Read", "NE Variance", "NE Sentence"];
-const EMPTY_TASK = { type: TASK_TYPES[0], text: "", prompt: "", assignedTo: "" };
+const TASK_TYPES = ["NE Read", "NE Variance", "NE Sentence", "Chinese Read"];
+const EMPTY_TASK = { type: TASK_TYPES[0], text: "", prompt: "", pinyinScript: "", assignedTo: "" };
 const ADMIN_PROJECT_VIEWS = {
   TASKS: "tasks",
   SUBMISSIONS: "submissions",
@@ -266,7 +266,7 @@ export default function ProjectDetail() {
 
   const openCreate = () => { setForm(EMPTY_TASK); setEditing(null); setModal("form"); };
   const openEdit = (t) => {
-    setForm({ type: t.type, text: t.text, prompt: t.prompt, assignedTo: t.assignedTo?._id || "" });
+    setForm({ type: t.type, text: t.text, prompt: t.prompt, pinyinScript: t.pinyinScript || "", assignedTo: t.assignedTo?._id || "" });
     setEditing(t); setModal("form");
   };
 
@@ -1116,6 +1116,13 @@ export default function ProjectDetail() {
               <input value={form.prompt} onChange={(e) => setForm((f) => ({ ...f, prompt: e.target.value }))}
                 className="input" placeholder="e.g. Read the sentence below clearly" required />
             </div>
+            {form.type === "Chinese Read" && (
+              <div>
+                <label className="label">Pinyin Script <span className="normal-case text-slate-500">(editable by the assigned user)</span></label>
+                <textarea value={form.pinyinScript} onChange={(e) => setForm((f) => ({ ...f, pinyinScript: e.target.value }))}
+                  className="input resize-none" rows={4} placeholder="Enter the initial pinyin transliteration…" />
+              </div>
+            )}
            {/* <div>
               <label className="label">Assign To <span className="normal-case text-slate-500">(optional)</span></label>
               <select value={form.assignedTo} onChange={(e) => setForm((f) => ({ ...f, assignedTo: e.target.value }))} className="input">
